@@ -1,0 +1,1526 @@
+<!DOCTYPE html>
+<html lang="es" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>APOPHIS — Vulnerability Chaos Engine</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter & Fira Code -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                        mono: ['Fira Code', 'monospace'],
+                    },
+                    colors: {
+                        chaos: {
+                            950: '#09090b',
+                            900: '#121214',
+                            800: '#1a1a1e',
+                            700: '#26262b',
+                            gold: '#f59e0b',
+                            gold_dark: '#b45309',
+                            crimson: '#ef4444',
+                            crimson_dark: '#991b1b',
+                            cyan: '#06b6d4',
+                        }
+                    },
+                    boxShadow: {
+                        'glow-gold': '0 0 20px rgba(245, 158, 11, 0.15)',
+                        'glow-crimson': '0 0 20px rgba(239, 68, 68, 0.15)',
+                        'glow-cyan': '0 0 25px rgba(6, 182, 212, 0.2)',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #09090b;
+            color: #f4f4f5;
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #121214;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #26262b;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #f59e0b;
+        }
+        .bg-grid-pattern {
+            background-size: 40px 40px;
+            background-image: 
+                linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+        }
+        @keyframes infinite-progress {
+            0% { left: -30%; width: 30%; }
+            50% { width: 60%; }
+            100% { left: 100%; width: 30%; }
+        }
+        .animate-infinite-progress {
+            animation: infinite-progress 1.8s infinite linear;
+        }
+    </style>
+</head>
+<body class="font-sans antialiased bg-grid-pattern overflow-x-hidden">
+
+    <!-- Toast Notification (z-[60] keeps it above fixed header) -->
+    <div id="toast" class="fixed bottom-5 right-5 z-[60] transform translate-y-10 opacity-0 transition-all duration-300 bg-chaos-800 border-l-4 border-chaos-gold text-white px-4 py-3 rounded shadow-lg flex items-center space-x-3 pointer-events-none max-w-sm">
+        <svg class="w-5 h-5 text-chaos-gold animate-bounce flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+        <span id="toast-message" class="text-xs sm:text-sm font-mono font-medium"></span>
+    </div>
+
+    <!-- Header Navigation (z-50 ensures it remains on top of any relative z-10 elements during scroll) -->
+    <header class="sticky top-0 z-50 bg-chaos-950/90 backdrop-blur-md border-b border-chaos-800 transition-all duration-300">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <!-- Logo -->
+                <div class="flex items-center space-x-3">
+                    <svg class="w-8 h-8 text-chaos-gold drop-shadow-[0_0_8px_rgba(245,158,11,0.5)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                    </svg>
+                    <span class="text-xl font-bold tracking-widest font-mono text-white bg-gradient-to-r from-white via-zinc-200 to-chaos-gold bg-clip-text text-transparent">APOPHIS</span>
+                </div>
+
+                <!-- Navigation menu (Desktop) -->
+                <nav class="hidden md:flex space-x-6 lg:space-x-8 text-sm font-medium">
+                    <a href="#features" data-i18n="nav_features" class="text-zinc-400 hover:text-chaos-gold transition-colors">Características</a>
+                    <a href="#interactive-demo" data-i18n="nav_console" class="text-zinc-400 hover:text-chaos-gold transition-colors">Consola Interactiva</a>
+                    <a href="#tools-catalog" data-i18n="nav_tools" class="text-zinc-400 hover:text-chaos-gold transition-colors">Herramientas</a>
+                    <a href="#research" data-i18n="nav_research" class="text-zinc-400 hover:text-chaos-gold transition-colors">Investigación</a>
+                    <a href="#architecture" data-i18n="nav_architecture" class="text-zinc-400 hover:text-chaos-gold transition-colors">Arquitectura</a>
+                    <a href="#setup" data-i18n="nav_install" class="text-zinc-400 hover:text-chaos-gold transition-colors">Instalación</a>
+                </nav>
+
+                <!-- Actions & Language -->
+                <div class="flex items-center space-x-2 sm:space-x-4">
+                    <!-- Language selector -->
+                    <div class="flex bg-chaos-950 border border-chaos-800 rounded-lg p-0.5 text-xs font-mono">
+                        <button onclick="changeLang('es')" id="btn-lang-es" class="px-2 py-1 rounded transition-colors bg-chaos-gold text-zinc-950 font-bold">ES</button>
+                        <button onclick="changeLang('en')" id="btn-lang-en" class="px-2 py-1 rounded transition-colors text-zinc-400">EN</button>
+                    </div>
+
+                    <!-- GitHub Desktop link -->
+                    <a href="https://github.com/elbader17/Apophis" target="_blank" class="text-zinc-400 hover:text-white transition-colors p-2 rounded-lg hover:bg-chaos-800" title="GitHub">
+                        <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.464-1.11-1.464-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.579.688.481C19.137 20.162 22 16.418 22 12c0-5.523-4.477-10-10-10z"/></svg>
+                    </a>
+
+                    <!-- Mobile Menu Toggle Button -->
+                    <button onclick="toggleMobileMenu()" class="md:hidden p-2 rounded-lg text-zinc-400 hover:bg-chaos-800 hover:text-white focus:outline-none" aria-label="Toggle menu">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" id="menu-icon-svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mobile Navigation Menu -->
+        <div id="mobile-menu" class="hidden md:hidden bg-chaos-950 border-b border-chaos-800 px-4 pt-2 pb-4 space-y-2">
+            <a href="#features" onclick="toggleMobileMenu()" data-i18n="nav_features" class="block py-2 px-3 rounded-lg text-zinc-300 hover:bg-chaos-800 hover:text-chaos-gold transition-colors">Características</a>
+            <a href="#interactive-demo" onclick="toggleMobileMenu()" data-i18n="nav_console" class="block py-2 px-3 rounded-lg text-zinc-300 hover:bg-chaos-800 hover:text-chaos-gold transition-colors">Consola Interactiva</a>
+            <a href="#tools-catalog" onclick="toggleMobileMenu()" data-i18n="nav_tools" class="block py-2 px-3 rounded-lg text-zinc-300 hover:bg-chaos-800 hover:text-chaos-gold transition-colors">Herramientas</a>
+            <a href="#research" onclick="toggleMobileMenu()" data-i18n="nav_research" class="block py-2 px-3 rounded-lg text-zinc-300 hover:bg-chaos-800 hover:text-chaos-gold transition-colors">Investigación</a>
+            <a href="#architecture" onclick="toggleMobileMenu()" data-i18n="nav_architecture" class="block py-2 px-3 rounded-lg text-zinc-300 hover:bg-chaos-800 hover:text-chaos-gold transition-colors">Arquitectura</a>
+            <a href="#setup" onclick="toggleMobileMenu()" data-i18n="nav_install" class="block py-2 px-3 rounded-lg text-zinc-300 hover:bg-chaos-800 hover:text-chaos-gold transition-colors">Instalación</a>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="relative pt-12 pb-16 md:pt-24 md:pb-32 overflow-hidden">
+        <div class="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[280px] sm:w-[500px] h-[280px] sm:h-[500px] bg-chaos-gold/5 blur-[120px] pointer-events-none rounded-full"></div>
+        <div class="absolute top-1/2 left-1/4 -translate-x-1/2 -translate-y-1/2 w-[220px] sm:w-[350px] h-[220px] sm:h-[350px] bg-chaos-crimson/5 blur-[100px] pointer-events-none rounded-full"></div>
+
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+                
+                <!-- Hero Left: Content -->
+                <div class="lg:col-span-7 space-y-6 text-center lg:text-left">
+                    <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-chaos-gold/10 border border-chaos-gold/20 text-chaos-gold text-[10px] sm:text-xs font-semibold uppercase tracking-wider font-mono">
+                        <span data-i18n="hero_badge">Model Context Protocol (MCP) Server</span>
+                        <span class="w-1.5 h-1.5 rounded-full bg-chaos-gold animate-ping"></span>
+                    </div>
+
+                    <h1 class="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-[1.15] font-sans">
+                        <span data-i18n="hero_title_line1">El motor de vulnerabilidades</span> <br class="hidden sm:inline">
+                        <span class="bg-gradient-to-r from-chaos-gold via-orange-500 to-chaos-crimson bg-clip-text text-transparent drop-shadow-sm" data-i18n="hero_title_accent">
+                            Vulnerability Engine
+                        </span>
+                    </h1>
+
+                    <p class="text-zinc-400 text-sm sm:text-base md:text-lg max-w-2xl mx-auto lg:mx-0 leading-relaxed" data-i18n="hero_description">
+                        Inspirado en la deidad egipcia del caos eterno. APOPHIS es un servidor MCP robusto que coordina un enjambre de agentes paralelos para cazar vulnerabilidades y sincronizar CVEs directamente con tu inteligencia artificial.
+                    </p>
+
+                    <!-- Actions -->
+                    <div class="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3 sm:gap-4 pt-2">
+                        <a href="#interactive-demo" data-i18n="hero_cta_demo" class="w-full sm:w-auto text-center px-6 py-3 rounded-lg bg-gradient-to-r from-chaos-gold to-amber-600 hover:from-amber-400 hover:to-chaos-gold text-zinc-950 font-bold text-sm sm:text-base transition-all hover:scale-[1.02] shadow-glow-gold">
+                            Simular Auditoría de Seguridad
+                        </a>
+                        <a href="https://github.com/elbader17/Apophis" target="_blank" class="w-full sm:w-auto text-center px-6 py-3 rounded-lg bg-chaos-900 hover:bg-chaos-800 border border-chaos-800 hover:border-chaos-700 text-white font-semibold text-sm sm:text-base transition-all flex items-center justify-center space-x-2">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.464-1.11-1.464-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.579.688.481C19.137 20.162 22 16.418 22 12c0-5.523-4.477-10-10-10z"/></svg>
+                            <span data-i18n="hero_cta_github">Repositorio GitHub</span>
+                        </a>
+                    </div>
+
+                    <!-- Tech Specs Row -->
+                    <div class="grid grid-cols-3 gap-2 sm:gap-4 pt-6 text-center sm:text-left border-t border-chaos-800/60 text-xs sm:text-sm">
+                        <div>
+                            <p class="text-[10px] text-zinc-500 font-mono" data-i18n="spec_lang_label">LENGUAJE</p>
+                            <p class="font-bold text-zinc-300">Go (Golang)</p>
+                        </div>
+                        <div>
+                            <p class="text-[10px] text-zinc-500 font-mono" data-i18n="spec_proto_label">PROTOCOLO</p>
+                            <p class="font-bold text-zinc-300">MCP (JSON-RPC)</p>
+                        </div>
+                        <div>
+                            <p class="text-[10px] text-zinc-500 font-mono" data-i18n="spec_integ_label">INTEGRACIÓN</p>
+                            <p class="font-bold text-zinc-300">OpenCode & LLMs</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Hero Right: Interactive Mini ASCII art & Live terminal look -->
+                <div class="lg:col-span-5 relative w-full">
+                    <div class="w-full bg-chaos-900 border border-chaos-800 rounded-xl overflow-hidden shadow-2xl relative">
+                        <!-- Terminal Bar -->
+                        <div class="bg-chaos-950 px-4 py-3 border-b border-chaos-800 flex items-center justify-between">
+                            <div class="flex space-x-1.5">
+                                <span class="w-3 h-3 rounded-full bg-red-500/80 block"></span>
+                                <span class="w-3 h-3 rounded-full bg-yellow-500/80 block"></span>
+                                <span class="w-3 h-3 rounded-full bg-green-500/80 block"></span>
+                            </div>
+                            <span class="text-xs font-mono text-zinc-500 select-none">apophis --status</span>
+                            <div class="w-10"></div>
+                        </div>
+
+                        <!-- Terminal Body -->
+                        <div class="p-4 sm:p-5 font-mono text-[10px] sm:text-xs text-zinc-400 overflow-x-auto space-y-4 bg-zinc-950/40">
+                            <!-- ASCII ART (Responsive sizes) -->
+                            <pre class="text-chaos-gold leading-tight select-none opacity-85 text-[7px] sm:text-[9px] md:text-xs font-bold font-mono">
+ █████  ██████  ██   ██  █████  ██████  ██    ██
+██   ██ ██   ██ ██   ██ ██   ██ ██   ██ ██    ██
+███████ ██████  ███████ ██   ██ ██████  ████████
+██   ██ ██      ██   ██ ██   ██ ██      ██    ██
+██   ██ ██      ██   ██  █████  ██      ██    ██
+     vulnerability chaos engine (v0.2)</pre>
+
+                            <!-- Mini system logs -->
+                            <div class="space-y-1">
+                                <p class="text-zinc-500">[12:14:02] <span class="text-zinc-400">INFO:</span> <span data-i18n="log_init">Inicializando Apophis MCP Server...</span></p>
+                                <p class="text-zinc-500">[12:14:02] <span class="text-chaos-cyan">INFO:</span> <span data-i18n="log_static">Cargadas 14 firmas estáticas críticas de CVE</span></p>
+                                <p class="text-zinc-500">[12:14:03] <span class="text-zinc-400">INFO:</span> <span data-i18n="log_db">Cargando base de datos ~/.apophis/dynamic-cves.json...</span></p>
+                                <p class="text-zinc-500">[12:14:03] <span class="text-emerald-500">READY:</span> <span data-i18n="log_ready">Servidor escuchando en stdio (JSON-RPC 2.0)</span></p>
+                            </div>
+
+                            <!-- Interactive Input Trigger -->
+                            <div class="p-3 bg-chaos-900/80 border border-chaos-800 rounded-lg text-zinc-300">
+                                <p class="text-xs text-chaos-gold font-bold mb-1" data-i18n="log_invoke_title">// LLM invoca herramienta:</p>
+                                <p class="text-xs text-white font-mono"><span class="text-zinc-500">apophis_status</span> <span class="text-chaos-cyan">{ }</span></p>
+                                <hr class="border-chaos-800 my-2">
+                                <div class="grid grid-cols-2 gap-2 text-[9px] sm:text-[10px]">
+                                    <div><span class="text-zinc-500" data-i18n="stat_workers">Trabajadores:</span> 6 Hilos</div>
+                                    <div><span class="text-zinc-500" data-i18n="stat_reports">Reportes:</span> 24 Generados</div>
+                                    <div><span class="text-zinc-500" data-i18n="stat_last">Último CVE:</span> CVE-2026-0899</div>
+                                    <div><span class="text-zinc-500" data-i18n="stat_uptime">Uptime:</span> 12h 43m</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- Key Capabilities Grid / Features -->
+    <section id="features" class="py-16 sm:py-20 bg-chaos-900/40 border-t border-b border-chaos-800/80 relative">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center max-w-3xl mx-auto space-y-3 mb-12 sm:mb-16">
+                <h2 class="text-xs font-semibold tracking-wider text-chaos-gold uppercase font-mono" data-i18n="features_sub">Arsenal Técnico</h2>
+                <p class="text-2xl sm:text-4xl font-extrabold text-white" data-i18n="features_title">¿Por qué APOPHIS redefine las auditorías?</p>
+                <p class="text-zinc-400 text-sm sm:text-base" data-i18n="features_desc">Unifica el poder de un escáner autónomo de vulnerabilidades y un agente investigador de inteligencia en amenazas en un único servidor MCP.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+                <!-- Card 1 -->
+                <div class="p-6 bg-chaos-900 border border-chaos-800 hover:border-chaos-gold/30 rounded-xl transition-all duration-300 hover:shadow-glow-gold group">
+                    <div class="w-12 h-12 rounded-lg bg-chaos-gold/10 flex items-center justify-center text-chaos-gold mb-5 group-hover:scale-110 transition-transform">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                    </div>
+                    <h3 class="text-lg font-bold text-white mb-2" data-i18n="feat1_title">Agentes de Caos Paralelos</h3>
+                    <p class="text-sm text-zinc-400 leading-relaxed" data-i18n="feat1_desc">
+                        Lanza 6 estrategias de auditoría concurrentes (`recon`, `aggressive`, `stealth`, `web`, `net`, `auth`) que compiten entre sí para encontrar fallas en el objetivo de forma eficiente.
+                    </p>
+                </div>
+
+                <!-- Card 2 -->
+                <div class="p-6 bg-chaos-900 border border-chaos-800 hover:border-chaos-gold/30 rounded-xl transition-all duration-300 hover:shadow-glow-gold group">
+                    <div class="w-12 h-12 rounded-lg bg-chaos-gold/10 flex items-center justify-center text-chaos-gold mb-5 group-hover:scale-110 transition-transform">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                    </div>
+                    <h3 class="text-lg font-bold text-white mb-2" data-i18n="feat2_title">Investigación en Vivo (Rss/APIs)</h3>
+                    <p class="text-sm text-zinc-400 leading-relaxed" data-i18n="feat2_desc">
+                        Sincroniza de forma dinámica las últimas vulnerabilidades de fuentes autoritativas como NVD NIST, CISA KEV, OSV, GHSA, Exploit-DB y feeds RSS especializados.
+                    </p>
+                </div>
+
+                <!-- Card 3 -->
+                <div class="p-6 bg-chaos-900 border border-chaos-800 hover:border-chaos-gold/30 rounded-xl transition-all duration-300 hover:shadow-glow-gold group">
+                    <div class="w-12 h-12 rounded-lg bg-chaos-gold/10 flex items-center justify-center text-chaos-gold mb-5 group-hover:scale-110 transition-transform">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                    </div>
+                    <h3 class="text-lg font-bold text-white mb-2" data-i18n="feat3_title">Generador de Stubs en Go</h3>
+                    <p class="text-sm text-zinc-400 leading-relaxed" data-i18n="feat3_desc">
+                        Compila stubs funcionales en Go con lógica preestructurada para comprobar vulnerabilidades específicas e intégralas como firmas duraderas dentro de la herramienta.
+                    </p>
+                </div>
+
+                <!-- Card 4 -->
+                <div class="p-6 bg-chaos-900 border border-chaos-800 hover:border-chaos-gold/30 rounded-xl transition-all duration-300 hover:shadow-glow-gold group">
+                    <div class="w-12 h-12 rounded-lg bg-chaos-gold/10 flex items-center justify-center text-chaos-gold mb-5 group-hover:scale-110 transition-transform">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                    </div>
+                    <h3 class="text-lg font-bold text-white mb-2" data-i18n="feat4_title">Inspección Web y SSL Profunda</h3>
+                    <p class="text-sm text-zinc-400 leading-relaxed" data-i18n="feat4_desc">
+                        Analiza debilidades SSL, cabeceras de seguridad ausentes, brute force de rutas sensibles expuestas (`.git/`, `.env`) y validaciones básicas de LFI, SQLi y XSS.
+                    </p>
+                </div>
+
+                <!-- Card 5 -->
+                <div class="p-6 bg-chaos-900 border border-chaos-800 hover:border-chaos-gold/30 rounded-xl transition-all duration-300 hover:shadow-glow-gold group">
+                    <div class="w-12 h-12 rounded-lg bg-chaos-gold/10 flex items-center justify-center text-chaos-gold mb-5 group-hover:scale-110 transition-transform">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/></svg>
+                    </div>
+                    <h3 class="text-lg font-bold text-white mb-2" data-i18n="feat5_title">Totalmente Autocontenido</h3>
+                    <p class="text-sm text-zinc-400 leading-relaxed" data-i18n="feat5_desc">
+                        Compilado en un único binario estático en Go sin dependencias adicionales de librerías en caliente o pesados frameworks de virtualización externos.
+                    </p>
+                </div>
+
+                <!-- Card 6 -->
+                <div class="p-6 bg-chaos-900 border border-chaos-800 hover:border-chaos-gold/30 rounded-xl transition-all duration-300 hover:shadow-glow-gold group">
+                    <div class="w-12 h-12 rounded-lg bg-chaos-gold/10 flex items-center justify-center text-chaos-gold mb-5 group-hover:scale-110 transition-transform">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                    </div>
+                    <h3 class="text-lg font-bold text-white mb-2" data-i18n="feat6_title">Reportes en Markdown e Indexados</h3>
+                    <p class="text-sm text-zinc-400 leading-relaxed" data-i18n="feat6_desc">
+                        Cada auditoría se almacena tanto en formato JSON como Markdown estruturado. Perfecto para la indexación automática y fácil consumo de tu cliente IA.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Interactive Section: Chaos Simulation Control Center -->
+    <section id="interactive-demo" class="py-16 sm:py-20 relative">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center max-w-3xl mx-auto space-y-3 mb-10 sm:mb-12">
+                <h2 class="text-xs font-semibold tracking-wider text-chaos-gold uppercase font-mono" data-i18n="demo_sub">Consola de Control del Caos</h2>
+                <p class="text-2xl sm:text-4xl font-extrabold text-white" data-i18n="demo_title">Prueba la Auditoría Paralela de APOPHIS</p>
+                <p class="text-zinc-400 text-sm sm:text-base" data-i18n="demo_desc">Configura tu objetivo, selecciona la estrategia del enjambre de agentes y observa la respuesta del motor en tiempo real.</p>
+            </div>
+
+            <!-- Dashboard Layout -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
+                
+                <!-- Controller Box -->
+                <div class="lg:col-span-4 bg-chaos-900 border border-chaos-800 rounded-xl p-5 sm:p-6 space-y-6">
+                    <div class="border-b border-chaos-800 pb-4">
+                        <h3 class="text-md font-bold text-white flex items-center space-x-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-chaos-gold animate-pulse"></span>
+                            <span data-i18n="demo_settings">Ajustes de Escaneo</span>
+                        </h3>
+                    </div>
+
+                    <!-- Input Target -->
+                    <div>
+                        <label class="block text-xs font-semibold font-mono text-zinc-400 uppercase tracking-wider mb-2" data-i18n="demo_host_label">Host Objetivo</label>
+                        <input id="demo-target" type="text" value="scan-me-securely.test" class="w-full bg-chaos-950 border border-chaos-700 rounded-lg px-3 py-2 text-sm text-white font-mono focus:outline-none focus:ring-1 focus:ring-chaos-gold transition-colors">
+                    </div>
+
+                    <!-- Strategy selector -->
+                    <div>
+                        <label class="block text-xs font-semibold font-mono text-zinc-400 uppercase tracking-wider mb-2" data-i18n="demo_strategy_label">Estrategia Dominante</label>
+                        <div class="grid grid-cols-2 gap-2" id="strategy-grid">
+                            <button onclick="setStrategy('recon')" class="strategy-btn px-3 py-2 bg-chaos-800 border border-chaos-700 rounded-lg text-xs font-mono font-medium text-zinc-300 hover:bg-chaos-700/50 transition-colors focus:outline-none active-strategy border-chaos-gold text-chaos-gold">
+                                recon
+                            </button>
+                            <button onclick="setStrategy('aggressive')" class="strategy-btn px-3 py-2 bg-chaos-950 border border-chaos-800 rounded-lg text-xs font-mono font-medium text-zinc-400 hover:bg-chaos-800 transition-colors focus:outline-none">
+                                aggressive
+                            </button>
+                            <button onclick="setStrategy('stealth')" class="strategy-btn px-3 py-2 bg-chaos-950 border border-chaos-800 rounded-lg text-xs font-mono font-medium text-zinc-400 hover:bg-chaos-800 transition-colors focus:outline-none">
+                                stealth
+                            </button>
+                            <button onclick="setStrategy('web-focus')" class="strategy-btn px-3 py-2 bg-chaos-950 border border-chaos-800 rounded-lg text-xs font-mono font-medium text-zinc-400 hover:bg-chaos-800 transition-colors focus:outline-none">
+                                web-focus
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Workers Threads -->
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-xs font-semibold font-mono text-zinc-400 uppercase tracking-wider" data-i18n="demo_workers_label">Hilos Paralelos (Workers)</label>
+                            <span id="worker-count-label" class="text-xs font-bold text-chaos-gold font-mono">6</span>
+                        </div>
+                        <input id="worker-slider" type="range" min="1" max="12" value="6" oninput="updateWorkersValue(this.value)" class="w-full accent-chaos-gold bg-chaos-950 h-2 rounded-lg cursor-pointer">
+                    </div>
+
+                    <!-- Action Trigger -->
+                    <button id="start-scan-btn" onclick="runSimulatedScan()" class="w-full py-3 bg-gradient-to-r from-chaos-gold to-amber-600 hover:from-amber-400 hover:to-chaos-gold text-zinc-950 font-extrabold text-xs sm:text-sm tracking-widest font-mono rounded-lg transition-all shadow-glow-gold hover:scale-[1.01] flex items-center justify-center space-x-2 uppercase">
+                        <span data-i18n="demo_btn_text">Iniciar Escaneo</span>
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    </button>
+                </div>
+
+                <!-- Live Terminal Log (Right 8 cols) -->
+                <div class="lg:col-span-8 space-y-4 w-full">
+                    <div class="w-full bg-chaos-950 border border-chaos-800 rounded-xl overflow-hidden shadow-2xl flex flex-col h-[320px] sm:h-[400px]">
+                        <!-- Head -->
+                        <div class="bg-chaos-900 px-4 py-3 border-b border-chaos-800 flex items-center justify-between">
+                            <div class="flex items-center space-x-2">
+                                <span class="w-2.5 h-2.5 rounded-full bg-red-500"></span>
+                                <span class="text-xs font-mono text-zinc-400">apophis_orchestrator --active</span>
+                            </div>
+                            <span id="terminal-badge" class="px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 text-[9px] sm:text-[10px] font-mono">STANDBY</span>
+                        </div>
+                        
+                        <!-- Terminal Lines -->
+                        <div id="terminal-log" class="p-4 flex-1 overflow-y-auto font-mono text-[10px] sm:text-xs space-y-2 text-zinc-300">
+                            <p class="text-zinc-500" data-i18n="term_ready">&gt; Listo para lanzar agentes sobre el host objetivo...</p>
+                            <p class="text-zinc-500" data-i18n="term_instructions">&gt; Selecciona las opciones y pulsa "LANZAR CAOS" para simular la ejecución paralela.</p>
+                        </div>
+                    </div>
+
+                    <!-- Scan Results Preview Box (hidden till scan complete) -->
+                    <div id="results-box" class="hidden bg-chaos-900 border-2 border-chaos-gold/30 rounded-xl p-4 sm:p-5 shadow-glow-gold transition-all duration-500 scale-95 opacity-0">
+                        <div class="flex items-center justify-between mb-4 pb-2 border-b border-chaos-800">
+                            <div class="flex items-center space-x-2">
+                                <svg class="w-5 h-5 text-chaos-gold" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                <span class="text-xs sm:text-sm font-bold text-white font-mono" id="results-title">REPORTE: rpt-928d3a.md</span>
+                            </div>
+                            <button onclick="copyReport()" class="px-2.5 py-1 bg-chaos-800 border border-chaos-700 hover:border-chaos-gold rounded text-[10px] sm:text-[11px] font-mono text-zinc-300 flex items-center space-x-1 transition-all">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+                                <span data-i18n="demo_btn_copy">Copiar Reporte</span>
+                            </button>
+                        </div>
+                        <div class="space-y-4">
+                            <!-- Metrics Cards -->
+                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 text-center">
+                                <div class="bg-chaos-950 p-2 sm:p-2.5 rounded-lg border border-chaos-800">
+                                    <p class="text-[9px] sm:text-[10px] text-zinc-500 uppercase font-mono" data-i18n="rep_metric_severity">Gravedad Máxima</p>
+                                    <p class="text-xs sm:text-sm md:text-base font-bold text-red-500 font-mono" id="rep-severity">CRITICAL (9.8)</p>
+                                </div>
+                                <div class="bg-chaos-950 p-2 sm:p-2.5 rounded-lg border border-chaos-800">
+                                    <p class="text-[9px] sm:text-[10px] text-zinc-500 uppercase font-mono" data-i18n="rep_metric_ports">Puertos Abiertos</p>
+                                    <p class="text-xs sm:text-sm md:text-base font-bold text-chaos-gold font-mono" id="rep-ports">4 Puertos</p>
+                                </div>
+                                <div class="bg-chaos-950 p-2 sm:p-2.5 rounded-lg border border-chaos-800">
+                                    <p class="text-[9px] sm:text-[10px] text-zinc-500 uppercase font-mono" data-i18n="rep_metric_vulns">Vulnerabilidades</p>
+                                    <p class="text-xs sm:text-sm md:text-base font-bold text-orange-500 font-mono" id="rep-vulns">3 Críticas</p>
+                                </div>
+                                <div class="bg-chaos-950 p-2 sm:p-2.5 rounded-lg border border-chaos-800">
+                                    <p class="text-[9px] sm:text-[10px] text-zinc-500 uppercase font-mono" data-i18n="rep_metric_exposed">Archivos Expuestos</p>
+                                    <p class="text-xs sm:text-sm md:text-base font-bold text-chaos-cyan font-mono" id="rep-files">SI (.env, .git)</p>
+                                </div>
+                            </div>
+                            <pre id="report-content" class="bg-chaos-950 border border-chaos-800 p-3 sm:p-4 rounded-lg overflow-x-auto text-[10px] sm:text-[11px] font-mono text-zinc-400 whitespace-pre-wrap max-h-48"></pre>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- Interactive Section: Vuln Research Center & Live Sync -->
+    <section id="research" class="py-16 sm:py-20 bg-chaos-900/30 border-t border-b border-chaos-800/80 relative">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center max-w-3xl mx-auto space-y-3 mb-10 sm:mb-12">
+                <h2 class="text-xs font-semibold tracking-wider text-chaos-gold uppercase font-mono" data-i18n="research_sub">Buscador y Sincronizador de Amenazas</h2>
+                <p class="text-2xl sm:text-4xl font-extrabold text-white" data-i18n="research_title">Base de Datos Dinámica de CVEs</p>
+                <p class="text-zinc-400 text-sm sm:text-base" data-i18n="research_desc">APOPHIS no solo escanea firmas pre-programadas, sino que se nutre activamente de repositorios y bases de datos actualizadas con un simple comando.</p>
+            </div>
+
+            <!-- Vuln DB panel -->
+            <div class="bg-chaos-900 border border-chaos-800 rounded-xl overflow-hidden shadow-xl">
+                <!-- Header Toolbar -->
+                <div class="bg-chaos-950 p-4 border-b border-chaos-800 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <!-- Search Input -->
+                    <div class="relative flex-1 max-w-md w-full">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-zinc-500">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                        </span>
+                        <input id="cve-search" type="text" onkeyup="filterCVEs(this.value)" placeholder="Buscar por CVE, software (ej. 'linux', 'git', 'ssl')...." class="w-full bg-chaos-900 border border-chaos-700 rounded-lg pl-9 pr-3 py-2 text-sm text-zinc-200 focus:outline-none focus:ring-1 focus:ring-chaos-gold transition-colors font-mono" data-i18n-placeholder="research_search_placeholder">
+                    </div>
+
+                    <!-- Quick Sync Button -->
+                    <div class="flex items-center justify-between sm:justify-start space-x-3 w-full md:w-auto">
+                        <button id="sync-btn" onclick="syncCVEs()" class="px-4 py-2 bg-chaos-800 hover:bg-chaos-700 border border-chaos-700 hover:border-chaos-gold rounded-lg text-xs font-bold font-mono text-white transition-all flex items-center space-x-2">
+                            <svg id="sync-icon" class="w-4 h-4 text-chaos-gold" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 8H17"/></svg>
+                            <span id="sync-text" data-i18n="research_sync_btn">Sincronizar Fuentes</span>
+                        </button>
+                        <span class="text-xs text-zinc-500 font-mono"><span data-i18n="research_active_sources">Fuentes:</span> <strong class="text-zinc-300">6/6</strong></span>
+                    </div>
+                </div>
+
+                <!-- Live syncing progress indicator (hidden) -->
+                <div id="sync-progress" class="hidden bg-chaos-950 px-6 py-4 border-b border-chaos-800 text-center animate-pulse">
+                    <p class="text-xs font-mono text-chaos-gold mb-2" data-i18n="research_sync_progress">Conectando con NVD, CISA KEV, OSV, GHSA y ExploitDB...</p>
+                    <div class="w-full bg-chaos-900 h-1 rounded overflow-hidden relative">
+                        <div class="bg-chaos-gold h-full w-1/3 animate-infinite-progress rounded"></div>
+                    </div>
+                </div>
+
+                <!-- Table (with horizontal scroll for mobile) -->
+                <div class="overflow-x-auto">
+                    <!-- Mobile helper hint -->
+                    <div class="md:hidden bg-chaos-950 text-center py-1 text-[9px] font-mono text-zinc-500 border-b border-chaos-800" data-i18n="mobile_table_hint">
+                        ← Desliza lateralmente para ver más datos →
+                    </div>
+                    <table class="w-full text-left border-collapse min-w-[700px]">
+                        <thead>
+                            <tr class="bg-chaos-950 border-b border-chaos-800 text-xs font-semibold uppercase tracking-wider text-zinc-400 font-mono">
+                                <th class="p-4" data-i18n="table_id">Código / ID</th>
+                                <th class="p-4" data-i18n="table_score">Gravedad / Score</th>
+                                <th class="p-4" data-i18n="table_desc">Descripción de Amenaza</th>
+                                <th class="p-4" data-i18n="table_source">Origen</th>
+                                <th class="p-4 text-right" data-i18n="table_action">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cve-table-body" class="divide-y divide-chaos-800/60 text-sm font-mono text-zinc-300">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Interactivity: Go Stub Generator inside research -->
+            <div class="mt-8 sm:mt-12 bg-chaos-900 border border-chaos-800 rounded-xl p-5 sm:p-6 relative overflow-hidden">
+                <div class="absolute right-0 top-0 w-32 h-32 bg-chaos-cyan/5 blur-3xl pointer-events-none rounded-full"></div>
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+                    <div class="space-y-2 max-w-xl">
+                        <span class="text-xs font-mono font-semibold text-chaos-cyan uppercase tracking-wider" data-i18n="stub_badge">Compilación y Firmas</span>
+                        <h4 class="text-lg sm:text-xl font-bold text-white" data-i18n="stub_title">Generador de Stubs de Código Go</h4>
+                        <p class="text-sm text-zinc-400 leading-relaxed" data-i18n="stub_desc">¿Descubriste una nueva falla crítica? Ingresa el identificador abajo para generar automáticamente un esqueleto funcional en Go compatible con el motor de escaneo de APOPHIS.</p>
+                    </div>
+                    <!-- Stub Generator Form -->
+                    <div class="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+                        <input id="input-stub-cve" type="text" value="CVE-2026-9911" class="bg-chaos-950 border border-chaos-700 rounded-lg px-4 py-2 text-sm text-white font-mono focus:outline-none focus:ring-1 focus:ring-chaos-cyan transition-colors w-full md:w-44">
+                        <button onclick="generateGoStub()" class="w-full sm:w-auto px-5 py-2.5 bg-chaos-cyan/10 hover:bg-chaos-cyan/20 border border-chaos-cyan/30 rounded-lg text-xs font-extrabold font-mono text-chaos-cyan transition-all tracking-wider whitespace-nowrap">
+                            <span data-i18n="stub_btn">Generar Stub Go</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Stub Output Box -->
+                <div id="stub-output-box" class="hidden mt-6 bg-chaos-950 border border-chaos-800 rounded-lg overflow-hidden transition-all duration-300">
+                    <div class="bg-chaos-900 px-4 py-2 border-b border-chaos-800 flex items-center justify-between">
+                        <span class="text-[10px] sm:text-xs font-mono text-zinc-400">internal/tools/cve/dynamic/baked_stub.go</span>
+                        <button onclick="copyStub()" class="text-xs font-mono text-zinc-400 hover:text-white flex items-center space-x-1">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+                            <span data-i18n="stub_copy_btn">Copiar Código</span>
+                        </button>
+                    </div>
+                    <pre id="stub-code-content" class="p-4 text-[10px] sm:text-xs overflow-x-auto text-emerald-500 font-mono"></pre>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- MCP Tools Catalog / Interactive Explorer -->
+    <section id="tools-catalog" class="py-16 sm:py-20 relative">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center max-w-3xl mx-auto space-y-3 mb-10 sm:mb-16">
+                <h2 class="text-xs font-semibold tracking-wider text-chaos-gold uppercase font-mono" data-i18n="mcp_sub">API de Protocolo MCP</h2>
+                <p class="text-2xl sm:text-4xl font-extrabold text-white" data-i18n="mcp_title">Herramientas expuestas para tu IA</p>
+                <p class="text-zinc-400 text-sm sm:text-base" data-i18n="mcp_desc">Al conectar APOPHIS a tu cliente MCP de inteligencia artificial, tu LLM adquiere acceso directo a este set de capacidades de auditoría.</p>
+            </div>
+
+            <!-- Tabs buttons -->
+            <div class="flex justify-center border-b border-chaos-800 mb-8 overflow-x-auto">
+                <button onclick="switchToolTab('audit-tools')" id="btn-tab-audit" class="tool-tab-btn px-4 sm:px-6 py-3 text-xs sm:text-sm font-semibold font-mono border-b-2 border-chaos-gold text-chaos-gold whitespace-nowrap" data-i18n="mcp_tab_audit">Auditoría & Ataque</button>
+                <button onclick="switchToolTab('research-tools')" id="btn-tab-research" class="tool-tab-btn px-4 sm:px-6 py-3 text-xs sm:text-sm font-semibold font-mono border-b-2 border-transparent text-zinc-400 hover:text-white transition-all whitespace-nowrap" data-i18n="mcp_tab_research">Investigación de Vulnerabilidades</button>
+            </div>
+
+            <!-- Tabs Content -->
+            <!-- Tab 1: Audit Tools -->
+            <div id="tab-audit-tools" class="tool-tab-content space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Tool Card -->
+                    <div class="p-5 bg-chaos-900 border border-chaos-800 rounded-lg space-y-3">
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm font-bold font-mono text-chaos-gold">apophis_audit</span>
+                            <span class="px-2 py-0.5 rounded bg-red-500/10 text-red-500 text-[10px] font-mono border border-red-500/20" data-i18n="tool_badge_full">Completo</span>
+                        </div>
+                        <p class="text-xs text-zinc-400" data-i18n="tool1_desc">Escaneo concurrente multiruta sobre un host objetivo. Ejecuta validaciones de puertos, SSL/TLS, web app y credenciales por defecto.</p>
+                        <div class="bg-chaos-950 p-2.5 rounded font-mono text-[10px] sm:text-[11px] text-zinc-500 overflow-x-auto">
+                            <strong>Args:</strong> <span class="text-zinc-300">{ "target": "10.0.0.1", "strategy": "aggressive" }</span>
+                        </div>
+                    </div>
+
+                    <!-- Tool Card -->
+                    <div class="p-5 bg-chaos-900 border border-chaos-800 rounded-lg space-y-3">
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm font-bold font-mono text-chaos-gold">apophis_portscan</span>
+                            <span class="px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 text-[10px] font-mono" data-i18n="tool_badge_fast">Rápido</span>
+                        </div>
+                        <p class="text-xs text-zinc-400" data-i18n="tool2_desc">Escaneo rápido de puertos TCP y recolección inteligente de banners de servicios (SSH, HTTP, FTP, etc.).</p>
+                        <div class="bg-chaos-950 p-2.5 rounded font-mono text-[10px] sm:text-[11px] text-zinc-500 overflow-x-auto">
+                            <strong>Args:</strong> <span class="text-zinc-300">{ "target": "domain.com", "top_ports": 100 }</span>
+                        </div>
+                    </div>
+
+                    <!-- Tool Card -->
+                    <div class="p-5 bg-chaos-900 border border-chaos-800 rounded-lg space-y-3">
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm font-bold font-mono text-chaos-gold">apophis_web_audit</span>
+                            <span class="px-2 py-0.5 rounded bg-chaos-cyan/10 text-chaos-cyan text-[10px] font-mono border border-chaos-cyan/20">Web OSINT</span>
+                        </div>
+                        <p class="text-xs text-zinc-400" data-i18n="tool3_desc">Auditoría web dirigida: valida políticas de cabeceras de seguridad, rutas críticas de depuración expuestas y pruebas sencillas de XSS/SQLi.</p>
+                        <div class="bg-chaos-950 p-2.5 rounded font-mono text-[10px] sm:text-[11px] text-zinc-500 overflow-x-auto">
+                            <strong>Args:</strong> <span class="text-zinc-300">{ "target": "https://api.test", "brute_paths": true }</span>
+                        </div>
+                    </div>
+
+                    <!-- Tool Card -->
+                    <div class="p-5 bg-chaos-900 border border-chaos-800 rounded-lg space-y-3">
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm font-bold font-mono text-chaos-gold">apophis_check_cve</span>
+                            <span class="px-2 py-0.5 rounded bg-orange-500/10 text-orange-400 text-[10px] font-mono border border-orange-500/20">Database</span>
+                        </div>
+                        <p class="text-xs text-zinc-400" data-i18n="tool4_desc">Cruce de firmas locales e información recolectada de versiones contra la base de datos de amenazas dinámica.</p>
+                        <div class="bg-chaos-950 p-2.5 rounded font-mono text-[10px] sm:text-[11px] text-zinc-500 overflow-x-auto">
+                            <strong>Args:</strong> <span class="text-zinc-300">{ "service": "apache", "version": "2.4.49" }</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 2: Research Tools (Hidden initially) -->
+            <div id="tab-research-tools" class="tool-tab-content hidden space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Tool Card -->
+                    <div class="p-5 bg-chaos-900 border border-chaos-800 rounded-lg space-y-3">
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm font-bold font-mono text-chaos-gold">apophis_research</span>
+                            <span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[10px] font-mono border border-emerald-500/20" data-i18n="tool_badge_sync">Sync</span>
+                        </div>
+                        <p class="text-xs text-zinc-400" data-i18n="tool5_desc">Sincroniza y normaliza vulnerabilidades desde bases de datos globales de amenazas de ciberseguridad, actualizando el repositorio dinámico local.</p>
+                        <div class="bg-chaos-950 p-2.5 rounded font-mono text-[10px] sm:text-[11px] text-zinc-500 overflow-x-auto">
+                            <strong>Args:</strong> <span class="text-zinc-300">{ "sources": ["cisa-kev", "nvd"], "days_back": 15 }</span>
+                        </div>
+                    </div>
+
+                    <!-- Tool Card -->
+                    <div class="p-5 bg-chaos-900 border border-chaos-800 rounded-lg space-y-3">
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm font-bold font-mono text-chaos-gold">apophis_search_cve</span>
+                            <span class="px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 text-[10px] font-mono" data-i18n="tool_badge_search">Búsqueda</span>
+                        </div>
+                        <p class="text-xs text-zinc-400" data-i18n="tool6_desc">Filtra la base de datos sincronizada localmente por palabra clave, criticidad, puntuación CVSS mínima o filtros de CISA KEV.</p>
+                        <div class="bg-chaos-950 p-2.5 rounded font-mono text-[10px] sm:text-[11px] text-zinc-500 overflow-x-auto">
+                            <strong>Args:</strong> <span class="text-zinc-300">{ "keyword": "fortinet", "min_cvss": 8.0 }</span>
+                        </div>
+                    </div>
+
+                    <!-- Tool Card -->
+                    <div class="p-5 bg-chaos-900 border border-chaos-800 rounded-lg space-y-3">
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm font-bold font-mono text-chaos-gold">apophis_generate_stub</span>
+                            <span class="px-2 py-0.5 rounded bg-chaos-cyan/10 text-chaos-cyan text-[10px] font-mono border border-chaos-cyan/20">Generator</span>
+                        </div>
+                        <p class="text-xs text-zinc-400" data-i18n="tool7_desc">Construye stubs modulares en Go listos para la validación interna permanente de nuevas firmas del motor de caos.</p>
+                        <div class="bg-chaos-950 p-2.5 rounded font-mono text-[10px] sm:text-[11px] text-zinc-500 overflow-x-auto">
+                            <strong>Args:</strong> <span class="text-zinc-300">{ "cve_id": "CVE-2026-0001" }</span>
+                        </div>
+                    </div>
+
+                    <!-- Tool Card -->
+                    <div class="p-5 bg-chaos-900 border border-chaos-800 rounded-lg space-y-3">
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm font-bold font-mono text-chaos-gold">apophis_recommend_exploitation</span>
+                            <span class="px-2 py-0.5 rounded bg-red-500/10 text-red-500 text-[10px] font-mono border border-red-500/20" data-i18n="tool_badge_exploits">Exploits</span>
+                        </div>
+                        <p class="text-xs text-zinc-400" data-i18n="tool8_desc">Genera comandos informativos y guías de explotación/remediación detalladas ante un CVE o hallazgo detectado.</p>
+                        <div class="bg-chaos-950 p-2.5 rounded font-mono text-[10px] sm:text-[11px] text-zinc-500 overflow-x-auto">
+                            <strong>Args:</strong> <span class="text-zinc-300">{ "report_id": "rpt-928d3a", "severity": "HIGH" }</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Architecture Section -->
+    <section id="architecture" class="py-16 sm:py-20 bg-chaos-900/20 border-t border-b border-chaos-800/80 relative">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center max-w-3xl mx-auto space-y-3 mb-12 sm:mb-16">
+                <h2 class="text-xs font-semibold tracking-wider text-chaos-gold uppercase font-mono" data-i18n="arch_sub">Estructura Interna</h2>
+                <p class="text-2xl sm:text-4xl font-extrabold text-white" data-i18n="arch_title">Arquitectura de APOPHIS</p>
+                <p class="text-zinc-400 text-sm sm:text-base" data-i18n="arch_desc">Flujo de interacción directa entre el cliente IA, el protocolo de contexto (MCP) y los agentes concurrentes de Go.</p>
+            </div>
+
+            <!-- Clean Responsive Flow Diagram in HTML -->
+            <div class="grid grid-cols-1 md:grid-cols-11 gap-4 items-center">
+                <!-- Step 1 -->
+                <div class="md:col-span-3 p-5 bg-chaos-900 border border-chaos-800 rounded-xl text-center space-y-2">
+                    <div class="w-10 h-10 rounded-full bg-chaos-gold/10 text-chaos-gold mx-auto flex items-center justify-center font-bold">1</div>
+                    <h4 class="font-bold text-white text-sm" data-i18n="arch_step1_title">Host MCP (IA)</h4>
+                    <p class="text-xs text-zinc-400" data-i18n="arch_step1_desc">OpenCode, Cursor o Claude Desktop invocan y transmiten instrucciones JSON-RPC usando stdio estándar.</p>
+                </div>
+
+                <!-- Connectors 1 -->
+                <div class="md:col-span-1 text-center flex justify-center items-center py-2 md:py-0">
+                    <svg class="w-6 h-6 text-chaos-gold rotate-90 md:rotate-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                </div>
+
+                <!-- Step 2 -->
+                <div class="md:col-span-3 p-5 bg-zinc-950 border-2 border-chaos-gold rounded-xl text-center space-y-3 shadow-glow-gold relative">
+                    <span class="absolute -top-3 left-1/2 -translate-x-1/2 bg-chaos-gold text-zinc-950 text-[9px] font-bold px-2 py-0.5 rounded font-mono uppercase">APOPHIS Engine</span>
+                    <div class="w-10 h-10 rounded-full bg-chaos-gold text-zinc-950 mx-auto flex items-center justify-center font-bold">2</div>
+                    <h4 class="font-bold text-white text-sm" data-i18n="arch_step2_title">Orquestador de Caos</h4>
+                    <p class="text-xs text-zinc-400" data-i18n="arch_step2_desc">Gestiona la llamada, inicia hilos de concurrencia y despliega agentes paralelos de auditoría y análisis.</p>
+                </div>
+
+                <!-- Connectors 2 -->
+                <div class="md:col-span-1 text-center flex justify-center items-center py-2 md:py-0">
+                    <svg class="w-6 h-6 text-chaos-gold rotate-90 md:rotate-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                </div>
+
+                <!-- Step 3 -->
+                <div class="md:col-span-3 p-5 bg-chaos-900 border border-chaos-800 rounded-xl text-center space-y-2">
+                    <div class="w-10 h-10 rounded-full bg-chaos-cyan/10 text-chaos-cyan mx-auto flex items-center justify-center font-bold">3</div>
+                    <h4 class="font-bold text-white text-sm" data-i18n="arch_step3_title">Resultados Indexados</h4>
+                    <p class="text-xs text-zinc-400" data-i18n="arch_step3_desc">Se compilan los datos, se asocian con CVEs dinámicos y se genera un reporte consolidado indexable.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Setup / Configuration & Installation Section -->
+    <section id="setup" class="py-16 sm:py-20 relative">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center space-y-3 mb-10 sm:mb-16">
+                <h2 class="text-xs font-semibold tracking-wider text-chaos-gold uppercase font-mono" data-i18n="setup_sub">Instalación y Configuración</h2>
+                <p class="text-2xl sm:text-3xl font-extrabold text-white" data-i18n="setup_title">Despliega APOPHIS en 3 Minutos</p>
+                <p class="text-zinc-400 text-sm sm:text-base" data-i18n="setup_desc">APOPHIS se distribuye como un binario estático autocontenido listo para enlazarse con hosts MCP locales.</p>
+            </div>
+
+            <!-- Installer/config Tabs container -->
+            <div class="bg-chaos-900 border border-chaos-800 rounded-xl overflow-hidden shadow-2xl">
+                <!-- Navigation -->
+                <div class="bg-chaos-950 px-4 py-1 border-b border-chaos-800 flex space-x-2 overflow-x-auto">
+                    <button onclick="switchSetupTab('go-install')" id="btn-setup-install" class="setup-tab-btn px-4 py-2.5 text-xs font-bold font-mono border-b-2 border-chaos-gold text-chaos-gold whitespace-nowrap" data-i18n="setup_tab1">1. Compilación (Go)</button>
+                    <button onclick="switchSetupTab('opencode-conf')" id="btn-setup-config" class="setup-tab-btn px-4 py-2.5 text-xs font-bold font-mono border-b-2 border-transparent text-zinc-400 hover:text-white transition-all whitespace-nowrap" data-i18n="setup_tab2">2. Configurar OpenCode</button>
+                </div>
+
+                <!-- Content Panels -->
+                <!-- Setup Panel 1 -->
+                <div id="panel-go-install" class="setup-panel p-5 sm:p-6 space-y-4">
+                    <p class="text-sm text-zinc-400" data-i18n="setup1_text">Clona el repositorio oficial desde GitHub y realiza la compilación estática usando la toolchain de Go:</p>
+                    
+                    <div class="bg-chaos-950 rounded-lg p-4 font-mono text-xs text-emerald-500 relative group overflow-x-auto">
+                        <button onclick="copyCode('code-block-git')" class="absolute top-2 right-2 p-1.5 bg-chaos-800 hover:bg-chaos-700 rounded text-zinc-400 hover:text-white transition-colors" title="Copiar">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+                        </button>
+                        <pre id="code-block-git"># Clona el repositorio del proyecto
+git clone https://github.com/elbader17/Apophis.git apophis
+cd apophis
+
+# Compila el servidor MCP principal
+go build -o bin/apophis ./cmd/apophis
+
+# (Opcional) Compila el target de pruebas de red local
+go build -o bin/testtarget ./cmd/testtarget</pre>
+                    </div>
+                    <p class="text-xs text-zinc-500 italic" data-i18n="setup1_req">Requisito: Disponer de Go v1.21 o superior instalado en el entorno de desarrollo local.</p>
+                </div>
+
+                <!-- Setup Panel 2 -->
+                <div id="panel-opencode-conf" class="setup-panel hidden p-5 sm:p-6 space-y-4">
+                    <p class="text-sm text-zinc-400" data-i18n="setup2_text">Añade APOPHIS a la lista de servidores MCP en el archivo de configuración del host (por ejemplo, en <code class="text-chaos-gold font-mono text-xs">~/.config/opencode/opencode.json</code>):</p>
+                    
+                    <div class="bg-chaos-950 rounded-lg p-4 font-mono text-xs text-emerald-500 relative group overflow-x-auto">
+                        <button onclick="copyCode('code-block-json')" class="absolute top-2 right-2 p-1.5 bg-chaos-800 hover:bg-chaos-700 rounded text-zinc-400 hover:text-white transition-colors" title="Copiar">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+                        </button>
+                        <pre id="code-block-json">{
+  "mcp": {
+    "apophis": {
+      "type": "local",
+      "command": ["/RUTA/ABSOLUTA/HACIA/apophis/bin/apophis"],
+      "enabled": true,
+      "env": {
+        "APOPHIS_STORE": "/home/TU_USUARIO/.apophis/reports",
+        "APOPHIS_WORKERS": "6",
+        "APOPHIS_TIMEOUT": "5s",
+        "APOPHIS_NVD_KEY": "tu-nvd-api-key-aqui"  // Opcional
+      }
+    }
+  }
+}</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Roadmap & Ethics Check -->
+    <section class="py-12 sm:py-16 bg-chaos-900/40 border-t border-chaos-800">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-10 sm:gap-12 items-start">
+                <!-- Ethics Warning -->
+                <div class="space-y-4">
+                    <div class="flex items-center space-x-2 text-chaos-crimson">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                        <h4 class="font-extrabold tracking-wide uppercase font-mono text-sm" data-i18n="ethic_title">Uso Ético y Descargo de Responsabilidad</h4>
+                    </div>
+                    <p class="text-xs text-zinc-400 leading-relaxed" data-i18n="ethic_text1">
+                        Utiliza APOPHIS únicamente en entornos controlados, infraestructuras que te pertenezcan o sistemas en los que cuentes con la autorización explícita y por escrito de sus administradores.
+                    </p>
+                    <p class="text-xs text-zinc-500 leading-relaxed" data-i18n="ethic_text2">
+                        El escaneo de puertos o análisis de red sin consentimiento explícito es ilegal y punible bajo múltiples legislaciones del mundo. El autor no asume responsabilidad alguna por el uso indebido de este software.
+                    </p>
+                </div>
+
+                <!-- Future Roadmap -->
+                <div class="space-y-4">
+                    <h4 class="font-extrabold font-mono text-sm text-chaos-gold uppercase tracking-wider flex items-center space-x-2">
+                        <svg class="w-5 h-5 text-chaos-gold" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
+                        <span data-i18n="roadmap_title">Hoja de Ruta (Roadmap)</span>
+                    </h4>
+                    <ul class="space-y-2.5 text-xs text-zinc-400 font-mono">
+                        <li class="flex items-center space-x-2">
+                            <span class="w-3.5 h-3.5 rounded border border-chaos-gold flex items-center justify-center text-chaos-gold text-[9px] font-bold">✔</span>
+                            <span data-i18n="road1">Integración de base de datos de CVEs dinámicos</span>
+                        </li>
+                        <li class="flex items-center space-x-2">
+                            <span class="w-3.5 h-3.5 rounded border border-chaos-gold flex items-center justify-center text-chaos-gold text-[9px] font-bold">✔</span>
+                            <span data-i18n="road2">Generador de stubs modulares de escaneo en Go</span>
+                        </li>
+                        <li class="flex items-center space-x-2">
+                            <span class="w-3.5 h-3.5 rounded border-zinc-600 flex items-center justify-center text-zinc-500 text-[9px]"></span>
+                            <span class="text-zinc-500" data-i18n="road3">Ejecución segura de PoC de exploits en sandbox</span>
+                        </li>
+                        <li class="flex items-center space-x-2">
+                            <span class="w-3.5 h-3.5 rounded border-zinc-600 flex items-center justify-center text-zinc-500 text-[9px]"></span>
+                            <span class="text-zinc-500" data-i18n="road4">Análisis inteligente del enjambre orquestado por IA</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-chaos-950 border-t border-chaos-800 py-12 text-center text-xs text-zinc-500">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4">
+            <p>© 2026 APOPHIS Vulnerability Chaos Engine. Creado por <a href="https://github.com/elbader17" target="_blank" class="text-chaos-gold hover:underline">elbader17</a>.</p>
+            <p class="max-w-md mx-auto text-zinc-600" data-i18n="footer_license">Este software está distribuido bajo la licencia MIT. Libre para fines formativos, de desarrollo defensivo y auditorías expresamente autorizadas.</p>
+        </div>
+    </footer>
+
+    <!-- INTERACTIVE JAVASCRIPT LOGIC -->
+    <script>
+        // Dictionary containing natural/professional English & Spanish translation translations
+        const translations = {
+            es: {
+                nav_features: "Características",
+                nav_console: "Consola Interactiva",
+                nav_tools: "Herramientas",
+                nav_research: "Investigación",
+                nav_architecture: "Arquitectura",
+                nav_install: "Instalación",
+                
+                hero_badge: "Servidor Model Context Protocol (MCP)",
+                hero_title_line1: "El motor de vulnerabilidades",
+                hero_title_accent: "Vulnerability Engine",
+                hero_description: "Inspirado en la deidad egipcia del caos eterno. APOPHIS es un servidor MCP robusto que coordina un enjambre de agentes paralelos para cazar vulnerabilidades y sincronizar CVEs directamente con tu inteligencia artificial.",
+                hero_cta_demo: "Simular Auditoría de Seguridad",
+                hero_cta_github: "Repositorio GitHub",
+                
+                spec_lang_label: "LENGUAJE",
+                spec_proto_label: "PROTOCOLO",
+                spec_integ_label: "INTEGRACIÓN",
+
+                log_init: "Inicializando Apophis MCP Server...",
+                log_static: "Cargadas 14 firmas estáticas críticas de CVE",
+                log_db: "Cargando base de datos ~/.apophis/dynamic-cves.json...",
+                log_ready: "Servidor escuchando en stdio (JSON-RPC 2.0)",
+                log_invoke_title: "// LLM invoca herramienta:",
+                stat_workers: "Trabajadores:",
+                stat_reports: "Reportes:",
+                stat_last: "Último CVE:",
+                stat_uptime: "Uptime:",
+
+                features_sub: "Arsenal Técnico",
+                features_title: "¿Por qué APOPHIS redefine las auditorías?",
+                features_desc: "Unifica el poder de un escáner autónomo de vulnerabilidades y un agente investigador de inteligencia en amenazas en un único servidor MCP.",
+                feat1_title: "Agentes de Caos Paralelos",
+                feat1_desc: "Lanza 6 estrategias de auditoría concurrentes (`recon`, `aggressive`, `stealth`, `web`, `net`, `auth`) que compiten entre sí para encontrar fallas en el objetivo de forma eficiente.",
+                feat2_title: "Investigación en Vivo (Rss/APIs)",
+                feat2_desc: "Sincroniza de forma dinámica las últimas vulnerabilidades de fuentes autoritativas como NVD NIST, CISA KEV, OSV, GHSA, Exploit-DB y feeds RSS especializados.",
+                feat3_title: "Generador de Stubs en Go",
+                feat3_desc: "Compila stubs funcionales en Go con lógica preestructurada para comprobar vulnerabilidades específicas e intégralas como firmas duraderas dentro de la herramienta.",
+                feat4_title: "Inspección Web y SSL Profunda",
+                feat4_desc: "Analiza debilidades SSL, cabeceras de seguridad ausentes, brute force de rutas sensibles expuestas (`.git/`, `.env`) y validaciones básicas de LFI, SQLi y XSS.",
+                feat5_title: "Totalmente Autocontenido",
+                feat5_desc: "Compilado en un único binario estático en Go sin dependencias adicionales de librerías en caliente o pesados frameworks de virtualización externos.",
+                feat6_title: "Reportes en Markdown e Indexados",
+                feat6_desc: "Cada auditoría se almacena tanto en formato JSON como Markdown estruturado. Perfecto para la indexación automática y fácil consumo de tu cliente IA.",
+
+                demo_sub: "Consola de Control de Seguridad",
+                demo_title: "Prueba la Auditoría Paralela de APOPHIS",
+                demo_desc: "Configura tu objetivo, selecciona la estrategia del enjambre de agentes y observa la respuesta del motor en tiempo real.",
+                demo_settings: "Ajustes de Escaneo",
+                demo_host_label: "Host Objetivo",
+                demo_strategy_label: "Estrategia Dominante",
+                demo_workers_label: "Hilos Paralelos (Workers)",
+                demo_btn_text: "Iniciar Escaneo",
+                term_ready: "> Listo para lanzar agentes sobre el host objetivo...",
+                term_instructions: "> Selecciona las opciones y pulsa \"INICIAR ESCANEO\" para simular la ejecución paralela.",
+                demo_btn_copy: "Copiar Reporte",
+                rep_metric_severity: "Gravedad Máxima",
+                rep_metric_ports: "Puertos Abiertos",
+                rep_metric_vulns: "Vulnerabilidades",
+                rep_metric_exposed: "Archivos Expuestos",
+
+                research_sub: "Buscador y Sincronizador de Amenazas",
+                research_title: "Base de Datos Dinámica de CVEs",
+                research_desc: "APOPHIS no solo escanea firmas pre-programadas, sino que se nutre activamente de repositorios y bases de datos actualizadas con un simple comando.",
+                research_search_placeholder: "Buscar por CVE, software (ej. 'linux', 'git', 'ssl')...",
+                research_sync_btn: "Sincronizar Fuentes",
+                research_active_sources: "Fuentes:",
+                research_sync_progress: "Conectando con NVD, CISA KEV, OSV, GHSA y ExploitDB...",
+                mobile_table_hint: "← Desliza lateralmente para ver más datos →",
+                table_id: "Código / ID",
+                table_score: "Gravedad / Score",
+                table_desc: "Descripción de Amenaza",
+                table_source: "Origen",
+                table_action: "Acción",
+
+                stub_badge: "Compilación y Firmas",
+                stub_title: "Generador de Stubs de Código Go",
+                stub_desc: "¿Descubriste una nueva falla crítica? Ingresa el identificador abajo para generar automáticamente un esqueleto funcional en Go compatible con el motor de escaneo de APOPHIS.",
+                stub_btn: "Generar Stub Go",
+                stub_copy_btn: "Copiar Código",
+
+                mcp_sub: "API de Protocolo MCP",
+                mcp_title: "Herramientas expuestas para tu IA",
+                mcp_desc: "Al conectar APOPHIS a tu cliente MCP de inteligencia artificial, tu LLM adquiere acceso directo a este set de capacidades de auditoría.",
+                mcp_tab_audit: "Auditoría & Ataque",
+                mcp_tab_research: "Investigación de Vulnerabilidades",
+                tool_badge_full: "Completo",
+                tool_badge_fast: "Rápido",
+                tool_badge_sync: "Sincronizar",
+                tool_badge_search: "Búsqueda",
+                tool_badge_exploits: "Exploits",
+                tool1_desc: "Escaneo concurrente multiruta sobre un host objetivo. Ejecuta validaciones de puertos, SSL/TLS, web app y credenciales por defecto.",
+                tool2_desc: "Escaneo rápido de puertos TCP y recolección inteligente de banners de servicios (SSH, HTTP, FTP, etc.).",
+                tool3_desc: "Auditoría web dirigida: valida políticas de cabeceras de seguridad, rutas críticas de depuración expuestas y pruebas sencillas de XSS/SQLi.",
+                tool4_desc: "Cruce de firmas locales e información recolectada de versiones contra la base de datos de amenazas dinámica.",
+                tool5_desc: "Sincroniza y normaliza vulnerabilidades desde bases de datos globales de amenazas de ciberseguridad, actualizando el repositorio dinámico local.",
+                tool6_desc: "Filtra la base de datos sincronizada localmente por palabra clave, criticidad, puntuación CVSS mínima o filtros de CISA KEV.",
+                tool7_desc: "Construye stubs modulares en Go listos para la validación interna permanente de nuevas firmas del motor de caos.",
+                tool8_desc: "Generador informativo de comandos e instrucciones detalladas de explotación ante hallazgos de CVE en particular.",
+
+                arch_sub: "Estructura Interna",
+                arch_title: "Arquitectura de APOPHIS",
+                arch_desc: "Flujo de interacción directa entre el cliente IA, el protocolo de contexto (MCP) y los agentes concurrentes de Go.",
+                arch_step1_title: "1. Host MCP (IA)",
+                arch_step1_desc: "OpenCode, Cursor o Claude Desktop invocan y transmiten instrucciones JSON-RPC usando stdio estándar.",
+                arch_step2_title: "2. Orquestador",
+                arch_step2_desc: "Gestiona la llamada, inicia hilos de concurrencia y despliega agentes paralelos de auditoría y análisis.",
+                arch_step3_title: "3. Salida consolidada",
+                arch_step3_desc: "Se compilan los datos, se asocian con CVEs dinámicos y se genera un reporte consolidado indexable.",
+
+                setup_sub: "Instalación y Configuración",
+                setup_title: "Despliega APOPHIS en 3 Minutos",
+                setup_desc: "APOPHIS se distribuye como un binario estático autocontenido listo para enlazarse con hosts MCP locales.",
+                setup_tab1: "1. Compilación (Go)",
+                setup_tab2: "2. Configurar OpenCode",
+                setup1_text: "Clona el repositorio oficial desde GitHub y realiza la compilación estática usando la toolchain de Go:",
+                setup1_req: "Requisito: Disponer de Go v1.21 o superior instalado en el entorno de desarrollo local.",
+                setup2_text: "Añade APOPHIS a la lista de servidores MCP en el archivo de configuración de tu cliente (por ejemplo, en ~/.config/opencode/opencode.json):",
+
+                ethic_title: "Uso Ético y Descargo de Responsabilidad",
+                ethic_text1: "Utiliza APOPHIS únicamente en entornos controlados, infraestructuras que te pertenezcan o sistemas en los que cuentes con la autorización explícita y por escrito de sus administradores.",
+                ethic_text2: "El escaneo de puertos o análisis de red sin consentimiento explícito es ilegal y punible bajo múltiples legislaciones de ciberseguridad. El desarrollador de esta herramienta no asume responsabilidad alguna por cualquier uso inadecuado o malicioso.",
+                roadmap_title: "Hoja de Ruta (Roadmap)",
+                road1: "Integración de base de datos de CVEs dinámicos",
+                road2: "Generador de stubs modulares de escaneo en Go",
+                road3: "Ejecución segura de PoC de exploits en sandbox",
+                road4: "Análisis inteligente del enjambre orquestado por IA",
+                footer_license: "Este software está distribuido bajo la licencia MIT. Libre para fines formativos, de desarrollo defensivo y auditorías expresamente autorizadas."
+            },
+            en: {
+                nav_features: "Features",
+                nav_console: "Chaos Console",
+                nav_tools: "Tools",
+                nav_research: "Research",
+                nav_architecture: "Architecture",
+                nav_install: "Installation",
+                
+                hero_badge: "Model Context Protocol (MCP) Server",
+                hero_title_line1: "The chaotic engine for",
+                hero_title_accent: "Vulnerability Chaos",
+                hero_description: "Inspired by the Egyptian serpent-god of eternal chaos. APOPHIS is an advanced MCP server coordinating parallel swarms of chaotic workers to hunt down system weaknesses and sync live CVEs directly to your AI client.",
+                hero_cta_demo: "Simulate Chaos Audit",
+                hero_cta_github: "GitHub Repository",
+                
+                spec_lang_label: "LANGUAGE",
+                spec_proto_label: "PROTOCOL",
+                spec_integ_label: "INTEGRATION",
+
+                log_init: "Initializing Apophis MCP Server...",
+                log_static: "Loaded 14 high-impact static CVE signatures",
+                log_db: "Loading local store ~/.apophis/dynamic-cves.json...",
+                log_ready: "Server listening on stdio (JSON-RPC 2.0)",
+                log_invoke_title: "// AI Client Invoking Tool:",
+                stat_workers: "Workers:",
+                stat_reports: "Reports:",
+                stat_last: "Last CVE:",
+                stat_uptime: "Uptime:",
+
+                features_sub: "Technical Arsenal",
+                features_title: "How APOPHIS Redefines Security Auditing",
+                features_desc: "Unifies the intelligence of an autonomous vuln scanner and a live threat research assistant within a single local MCP server.",
+                feat1_title: "Parallel Chaos Workers",
+                feat1_desc: "Fires up 6 concurrent scanning routines (`recon`, `aggressive`, `stealth`, `web`, `net`, `auth`) competing to quickly uncover entry points.",
+                feat2_title: "Live Sourced Threat Intel",
+                feat2_desc: "Syncs vulnerabilities and public exploit PoCs on the fly from NVD NIST, CISA KEV, OSV, GHSA, Exploit-DB, and security newsfeeds.",
+                feat3_title: "Go Test-Stub Engine",
+                feat3_desc: "Generates functional, copy-pasteable Go code structures tailored to check newly published CVEs, compiling them into static signatures.",
+                feat4_title: "Web & SSL Inspection",
+                feat4_desc: "Scans for SSL/TLS misconfigurations, missing security headers, path-bruteforcing exposed directories (`.git/`, `.env`), and LFI/SQLi hazards.",
+                feat5_title: "Zero Runtime Dependencies",
+                feat5_desc: "Compiles down to a single, fully self-contained Go static binary. No bloated runtimes, virtual environments, or system library clutter.",
+                feat6_title: "AI-Optimized Markdown Output",
+                feat6_desc: "Stores and indexes every audit report in clean Markdown and JSON. Easily parsed, processed, and ingested by local LLM systems.",
+
+                demo_sub: "Chaos Control Center",
+                demo_title: "Test Drive the APOPHIS Scanner Swarm",
+                demo_desc: "Configure a simulation target, select your dominant strategy, and spin up a real-time visualization of parallel agent execution.",
+                demo_settings: "Scan Settings",
+                demo_host_label: "Target Host",
+                demo_strategy_label: "Dominant Strategy",
+                demo_workers_label: "Parallel Threads (Workers)",
+                demo_btn_text: "Launch Chaos",
+                term_ready: "> Ready to deploy agents on target host...",
+                term_instructions: "> Select options and press \"LAUNCH CHAOS\" to see the parallel thread scheduler run.",
+                demo_btn_copy: "Copy Report",
+                rep_metric_severity: "Max Severity",
+                rep_metric_ports: "Open Ports",
+                rep_metric_vulns: "Vulnerabilities",
+                rep_metric_exposed: "Exposed Assets",
+
+                research_sub: "Threat Intelligence Hub",
+                research_title: "Dynamic CVE Database Splicer",
+                research_desc: "APOPHIS continuously aggregates global security advisory feeds with a simple tool command, instantly enriching your scanning engine.",
+                research_search_placeholder: "Search by CVE, service, keyword (e.g., 'linux', 'git', 'ssl')...",
+                research_sync_btn: "Sync Sourced Feeds",
+                research_active_sources: "Sourced:",
+                research_sync_progress: "Polling NVD, CISA KEV, OSV, GHSA, and ExploitDB APIs...",
+                mobile_table_hint: "← Swipe horizontally to explore full data →",
+                table_id: "Code / ID",
+                table_score: "Severity / Score",
+                table_desc: "Threat Details",
+                table_source: "Source",
+                table_action: "Action",
+
+                stub_badge: "Signature Splicing",
+                stub_title: "Go Validation Stub Builder",
+                stub_desc: "Stumbled upon an emerging threat? Input the CVE code below to generate a boilerplate Go assertion helper compatible with the scanner runtime.",
+                stub_btn: "Generate Go Stub",
+                stub_copy_btn: "Copy Code",
+
+                mcp_sub: "MCP Tool Definitions",
+                mcp_title: "Exposing Capabilities directly to your LLM",
+                mcp_desc: "When connected to your AI assistant workspace, these specific audit mechanisms become directly callable by the LLM context wrapper.",
+                mcp_tab_audit: "Audit & Offense",
+                mcp_tab_research: "Vulnerability Research",
+                tool_badge_full: "Full Scan",
+                tool_badge_fast: "Fast",
+                tool_badge_sync: "Sinc",
+                tool_badge_search: "Search",
+                tool_badge_exploits: "Exploits",
+                tool1_desc: "Multi-threaded parallel target assessment. Launches automated port audits, TLS health checks, path scans, and credential checks.",
+                tool2_desc: "Rapid TCP port scanner executing banner-grabbing operations to profile network surface services.",
+                tool3_desc: "Targeted web-application assessment probing security headers, endpoint leaks, and trailing parameters.",
+                tool4_desc: "Correlates compiled static rules and gathered service banners against dynamic CVE registries.",
+                tool5_desc: "Pulls and parses fresh advisory listings from global feeds, directly appending additions into the local JSON storage.",
+                tool6_desc: "Filters and queries synchronized dynamic listings by keyword, minimal CVSS weight, or KEV presence.",
+                tool7_desc: "Generates boilerplate Go structures to implement persistent detection mechanics on future build pipelines.",
+                tool8_desc: "Emits safe command-line suggestions, mitigation steps, and reference links for a chosen CVE.",
+
+                arch_sub: "Internal Pipeline",
+                arch_title: "APOPHIS System Architecture",
+                arch_desc: "Structured data sequence between the local intelligence wrapper, the standard stdio JSON-RPC transport, and the Go execution scheduler.",
+                arch_step1_title: "1. MCP Client Host",
+                arch_step1_desc: "An AI interface triggers tools using structured JSON-RPC messages transferred via stdio pipelines.",
+                arch_step2_title: "2. Chaos Orchestrator",
+                arch_step2_desc: "Receives execution contexts, starts goroutines, and guides workers to run specific checks.",
+                arch_step3_title: "3. Consolidated Output",
+                arch_step3_desc: "Merges findings, compares version headers with the threat database, and emits indexed Markdown assets.",
+
+                setup_sub: "Installation & Bootstrapping",
+                setup_title: "Spin up APOPHIS in 3 Minutes",
+                setup_desc: "Shipped as a completely self-sufficient static Go binary, avoiding complex dependency footprints.",
+                setup_tab1: "1. Compiling (Go)",
+                setup_tab2: "2. Client Configurations",
+                setup1_text: "Fetch current repositories and trigger compiling processes utilizing standard Go toolchain engines:",
+                setup1_req: "Requirement: Ensure local development systems run Go v1.21 or above.",
+                setup2_text: "Integrate APOPHIS to your AI engine MCP pool (e.g. within ~/.config/opencode/opencode.json):",
+
+                ethic_title: "Responsible Use Policy",
+                ethic_text1: "Only utilize the APOPHIS scanning suite on systems and network domains you own, or with written permission from the platform operators.",
+                ethic_text2: "Network scanning, packet injection, and vulnerability probes may trigger legal issues if conducted unauthorized. Developers assume no responsibility for intentional malicious use.",
+                roadmap_title: "Development Roadmap",
+                road1: "Implement dynamic CVE store caching engines",
+                road2: "Introduce Go verification boilerplate generator tools",
+                road3: "Conduct safe PoC checks inside secure sandboxed runtimes",
+                road4: "Introduce AI-guided attack thread dynamic selector agents",
+                footer_license: "This project is distributed under the MIT License. Free for research, defensive implementation, and authorized pen-testing operations."
+            }
+        };
+
+        let currentLanguage = 'es';
+
+        // Set Language preference on load
+        function changeLang(lang) {
+            currentLanguage = lang;
+            
+            // Toggle active styling for language selector buttons
+            const btnEs = document.getElementById("btn-lang-es");
+            const btnEn = document.getElementById("btn-lang-en");
+            if (lang === 'es') {
+                btnEs.className = "px-2 py-1 rounded bg-chaos-gold text-zinc-950 font-bold transition-colors";
+                btnEn.className = "px-2 py-1 rounded text-zinc-400 transition-colors";
+            } else {
+                btnEn.className = "px-2 py-1 rounded bg-chaos-gold text-zinc-950 font-bold transition-colors";
+                btnEs.className = "px-2 py-1 rounded text-zinc-400 transition-colors";
+            }
+
+            // Update DOM translatable elements
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (translations[lang][key]) {
+                    el.innerHTML = translations[lang][key];
+                }
+            });
+
+            // Update placeholders
+            document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+                const key = el.getAttribute('data-i18n-placeholder');
+                if (translations[lang][key]) {
+                    el.placeholder = translations[lang][key];
+                }
+            });
+
+            renderCVEs(mockCVEs);
+            resetTerminalInstructions();
+        }
+
+        // Mobile Menu toggle
+        function toggleMobileMenu() {
+            const menu = document.getElementById("mobile-menu");
+            const iconSvg = document.getElementById("menu-icon-svg");
+            
+            if (menu.classList.contains("hidden")) {
+                menu.classList.remove("hidden");
+                iconSvg.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>';
+            } else {
+                menu.classList.add("hidden");
+                iconSvg.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>';
+            }
+        }
+
+        // Dynamic simulated database
+        const mockCVEs = [
+            { id: "CVE-2026-0899", severity: "CRITICAL", cvss: "9.8", desc_es: "RCE crítico en parsers de encabezados HTTP en micro-servidores de Go v1.23.", desc_en: "Critical Remote Code Execution vulnerability inside HTTP header parsers of lightweight Go servers v1.23.", source: "CISA KEV" },
+            { id: "CVE-2026-1120", severity: "HIGH", cvss: "8.1", desc_es: "Divulgación de credenciales en variables de entorno expuestas a través de depuradores del runtime .env.", desc_en: "Credentials leak inside exposed environmental parameters accessible via legacy .env diagnostic runtimes.", source: "ExploitDB" },
+            { id: "CVE-2026-4433", severity: "HIGH", cvss: "7.5", desc_es: "Inyección de dependencias insegura (XSS reflejado) en paneles de administración antiguos.", desc_en: "Unsanitized dependency resolution triggering Reflected Cross-Site Scripting hazards in legacy administrative portals.", source: "NVD (NIST)" },
+            { id: "CVE-2026-5511", severity: "MEDIUM", cvss: "5.4", desc_es: "Negación de servicio (DoS) por bucle infinito en servidores de banners TLS con cifrados legacy de 64 bits.", desc_en: "Denial of Service loop caused by infinite recursion inside old TLS cipher parsers using 64-bit packages.", source: "OSV.dev" }
+        ];
+
+        function renderCVEs(dataList) {
+            const tableBody = document.getElementById("cve-table-body");
+            tableBody.innerHTML = "";
+            
+            if (dataList.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-zinc-500 font-mono">${currentLanguage === 'es' ? 'No se encontraron registros.' : 'No vulnerability records found.'}</td></tr>`;
+                return;
+            }
+
+            dataList.forEach(cve => {
+                let badgeClass = "text-yellow-500 bg-yellow-500/10 border-yellow-500/20";
+                if (cve.severity === "CRITICAL") {
+                    badgeClass = "text-red-500 bg-red-500/10 border-red-500/20 animate-pulse";
+                } else if (cve.severity === "MEDIUM") {
+                    badgeClass = "text-zinc-400 bg-zinc-800 border-zinc-700";
+                }
+
+                const desc = currentLanguage === 'es' ? cve.desc_es : cve.desc_en;
+                const btnLabel = currentLanguage === 'es' ? 'Generar Stub' : 'Generate Stub';
+
+                tableBody.innerHTML += `
+                    <tr class="hover:bg-chaos-800/30 transition-colors">
+                        <td class="p-4 font-bold text-white font-mono">${cve.id}</td>
+                        <td class="p-4">
+                            <span class="px-2 py-0.5 rounded text-[11px] font-semibold border ${badgeClass}">
+                                ${cve.severity} (${cve.cvss})
+                            </span>
+                        </td>
+                        <td class="p-4 text-xs text-zinc-400 max-w-sm truncate" title="${desc}">${desc}</td>
+                        <td class="p-4 text-zinc-500">${cve.source}</td>
+                        <td class="p-4 text-right">
+                            <button onclick="fillGoStubID('${cve.id}')" class="px-2 py-1 bg-chaos-800 hover:bg-chaos-cyan/10 hover:text-chaos-cyan border border-chaos-700 hover:border-chaos-cyan/30 rounded text-xs font-mono transition-colors">
+                                ${btnLabel}
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+        
+        renderCVEs(mockCVEs);
+
+        // Filter database
+        function filterCVEs(query) {
+            const lowerQuery = query.toLowerCase();
+            const filtered = mockCVEs.filter(cve => {
+                const desc = currentLanguage === 'es' ? cve.desc_es : cve.desc_en;
+                return cve.id.toLowerCase().includes(lowerQuery) || 
+                       desc.toLowerCase().includes(lowerQuery) ||
+                       cve.source.toLowerCase().includes(lowerQuery);
+            });
+            renderCVEs(filtered);
+        }
+
+        // Live threat synching simulation
+        function syncCVEs() {
+            const syncIcon = document.getElementById("sync-icon");
+            const syncText = document.getElementById("sync-text");
+            const syncProgress = document.getElementById("sync-progress");
+            
+            syncIcon.classList.add("animate-spin");
+            syncText.textContent = currentLanguage === 'es' ? "Sincronizando..." : "Syncing...";
+            syncProgress.classList.remove("hidden");
+
+            setTimeout(() => {
+                const newCVE = {
+                    id: "CVE-2026-9210",
+                    severity: "CRITICAL",
+                    cvss: "9.9",
+                    desc_es: "Inyección SQL ciega de segundo orden en módulos de autenticación integrados de LDAP / Active Directory v3.",
+                    desc_en: "Blind second-order SQL injection vulnerability within integrated LDAP / Active Directory v3 authentication sub-modules.",
+                    source: "GHSA (GitHub)"
+                };
+                
+                if (!mockCVEs.find(c => c.id === newCVE.id)) {
+                    mockCVEs.unshift(newCVE);
+                }
+
+                syncIcon.classList.remove("animate-spin");
+                syncText.textContent = currentLanguage === 'es' ? "Sincronizar Fuentes" : "Sync Sourced Feeds";
+                syncProgress.classList.add("hidden");
+                renderCVEs(mockCVEs);
+
+                const alertMsg = currentLanguage === 'es' ? 
+                    "Base de datos de CVE sincronizada (+1 crítico)" : 
+                    "Sourced databases updated successfully (+1 critical)";
+                showToast(alertMsg);
+            }, 2500);
+        }
+
+        // Active dominant strategy toggler
+        let selectedStrategy = 'recon';
+        function setStrategy(strategyName) {
+            selectedStrategy = strategyName;
+            const buttons = document.querySelectorAll('.strategy-btn');
+            buttons.forEach(btn => {
+                if (btn.textContent.trim() === strategyName) {
+                    btn.classList.add('border-chaos-gold', 'text-chaos-gold', 'bg-chaos-800');
+                    btn.classList.remove('border-chaos-800', 'text-zinc-400', 'bg-chaos-950');
+                } else {
+                    btn.classList.remove('border-chaos-gold', 'text-chaos-gold', 'bg-chaos-800');
+                    btn.classList.add('border-chaos-800', 'text-zinc-400', 'bg-chaos-950');
+                }
+            });
+        }
+
+        function updateWorkersValue(val) {
+            document.getElementById('worker-count-label').textContent = val;
+        }
+
+        function resetTerminalInstructions() {
+            const logBox = document.getElementById("terminal-log");
+            if (document.getElementById("terminal-badge").textContent.includes("STANDBY")) {
+                logBox.innerHTML = `
+                    <p class="text-zinc-500">${translations[currentLanguage]['term_ready']}</p>
+                    <p class="text-zinc-500">${translations[currentLanguage]['term_instructions']}</p>
+                `;
+            }
+        }
+
+        // Run Simulated Scan (Multi-threaded simulation logs)
+        function runSimulatedScan() {
+            const target = document.getElementById("demo-target").value || "scan-me-securely.test";
+            const workers = document.getElementById("worker-slider").value;
+            const logBox = document.getElementById("terminal-log");
+            const badge = document.getElementById("terminal-badge");
+            const startBtn = document.getElementById("start-scan-btn");
+            const resultsBox = document.getElementById("results-box");
+
+            startBtn.disabled = true;
+            badge.textContent = currentLanguage === 'es' ? "ESCANEO ACTIVO" : "ACTIVE AUDIT";
+            badge.classList.remove("bg-zinc-800", "text-zinc-400");
+            badge.classList.add("bg-red-500/10", "text-red-500", "animate-pulse");
+            resultsBox.classList.add("hidden");
+
+            // Multi-language logs array
+            const logs_es = [
+                { text: `[+] Iniciando auditoría paralela en el objetivo: ${target}`, color: "text-zinc-300" },
+                { text: `[+] Desplegando enjambre de ${workers} agentes concurrentes con estrategia dominante: ${selectedStrategy.toUpperCase()}`, color: "text-chaos-gold" },
+                { text: `[1] Trabajador-1 (portscan): Analizando puertos comunes en ${target}...`, color: "text-zinc-400" },
+                { text: `[2] Trabajador-2 (ssl): Verificando cadena de certificados TLS/SSL...`, color: "text-zinc-400" },
+                { text: `[3] Trabajador-3 (web-audit): Identificando cabeceras y redirecciones de seguridad...`, color: "text-zinc-400" },
+                { text: `[!] Trabajador-1: Encontrados puertos abiertos: 22 (SSH), 80 (HTTP), 443 (HTTPS), 3306 (MySQL)`, color: "text-chaos-cyan" },
+                { text: `[!] Trabajador-2: ¡Alerta de seguridad SSL! Certificado autofirmado y cifrados RC4 obsoletos permitidos.`, color: "text-yellow-500" },
+                { text: `[4] Trabajador-4 (auth-brute): Verificando contraseñas por defecto...`, color: "text-zinc-400" },
+                { text: `[!] Trabajador-3: ¡Ruta expuesta detectada! Archivo .env accesible públicamente con variables de base de datos.`, color: "text-red-500 font-bold" },
+                { text: `[5] Trabajador-5 (cve-matcher): Buscando vulnerabilidades conocidas en firmas locales...`, color: "text-zinc-400" },
+                { text: `[!] Trabajador-5: Coincidencia de CVE detectada para Banner HTTP: Apache/2.4.49 -> CVE-2026-0899 (Score: 9.8)`, color: "text-red-500 font-bold animate-pulse" },
+                { text: `[+] Consolidando resultados y generando reporte de seguridad final...`, color: "text-chaos-gold" },
+                { text: `[SUCCESS] Reporte guardado de manera exitosa en ~/.apophis/reports/rpt-928d3a.json`, color: "text-emerald-500 font-bold" }
+            ];
+
+            const logs_en = [
+                { text: `[+] Starting parallel swarm audit routine against target: ${target}`, color: "text-zinc-300" },
+                { text: `[+] Orchestrating ${workers} parallel workers on dominant tactical layout: ${selectedStrategy.toUpperCase()}`, color: "text-chaos-gold" },
+                { text: `[1] Worker-1 (portscan): Probing standard exposed TCP banners on ${target}...`, color: "text-zinc-400" },
+                { text: `[2] Worker-2 (ssl): Auditing local TLS certificate chain structures...`, color: "text-zinc-400" },
+                { text: `[3] Worker-3 (web-audit): Searching endpoint parameters and cross-domain parameters...`, color: "text-zinc-400" },
+                { text: `[!] Worker-1: Open ports successfully identified: 22 (SSH), 80 (HTTP), 443 (HTTPS), 3306 (MySQL)`, color: "text-chaos-cyan" },
+                { text: `[!] Worker-2: SSL Configuration Warning: Self-signed certificate chain and weak ciphers permitted.`, color: "text-yellow-500" },
+                { text: `[4] Worker-4 (auth-brute): Checking administrative service standard defaults...`, color: "text-zinc-400" },
+                { text: `[!] Worker-3: Sensitive Exposure! Environment parameters (.env file) directly accessible.`, color: "text-red-500 font-bold" },
+                { text: `[5] Worker-5 (cve-matcher): Comparing banners against local threat registers...`, color: "text-zinc-400" },
+                { text: `[!] Worker-5: Critical match detected on service banner: Apache/2.4.49 -> CVE-2026-0899 (Score: 9.8)`, color: "text-red-500 font-bold animate-pulse" },
+                { text: `[+] Aggregating thread telemetry to produce final assessment report...`, color: "text-chaos-gold" },
+                { text: `[SUCCESS] Stored chaos scan audit trace to path: ~/.apophis/reports/rpt-928d3a.json`, color: "text-emerald-500 font-bold" }
+            ];
+
+            const activeLogs = currentLanguage === 'es' ? logs_es : logs_en;
+
+            logBox.innerHTML = "";
+            let idx = 0;
+            
+            function printNextLine() {
+                if (idx < activeLogs.length) {
+                    logBox.innerHTML += `<p class="${activeLogs[idx].color}">${activeLogs[idx].text}</p>`;
+                    logBox.scrollTop = logBox.scrollHeight;
+                    idx++;
+                    setTimeout(printNextLine, 350 + (Math.random() * 200));
+                } else {
+                    // Simulation finished
+                    badge.textContent = currentLanguage === 'es' ? "COMPLETADO" : "COMPLETED";
+                    badge.classList.remove("bg-red-500/10", "text-red-500", "animate-pulse");
+                    badge.classList.add("bg-emerald-500/10", "text-emerald-400");
+                    startBtn.disabled = false;
+
+                    // Dynamically generate report based on I18N
+                    const reportTitle = `rpt-chaos-${Math.floor(Math.random() * 900000 + 100000)}.md`;
+                    document.getElementById("results-title").textContent = reportTitle;
+
+                    const report_es = `# Reporte de Vulnerabilidades APOPHIS - Objetivo: ${target}\n` +
+                        `Fecha: 2026-06-07 | Estrategia: ${selectedStrategy} | Trabajadores: ${workers}\n\n` +
+                        `## [CRÍTICO] 1. CVE-2026-0899 - Ejecución Remota de Código HTTP Parser (CVSS: 9.8)\n` +
+                        `   - Servicio: Apache Web Server (v2.4.49)\n` +
+                        `   - Ruta de Acceso: /cgi-bin/%%32%65%%32%65/%%32%65%%32%65/bin/sh\n` +
+                        `   - Mitigación: Actualizar inmediatamente a la versión Apache v2.4.51 o superior.\n\n` +
+                        `## [ALTO] 2. Fuga de Parámetros Sensibles (Archivo .env Expuesto)\n` +
+                        `   - Ruta de Acceso: http://${target}/.env\n` +
+                        `   - Fuga de Datos: DB_PASSWORD, AWS_SECRET_ACCESS_KEY, JWT_SECRET\n\n` +
+                        `## [MEDIO] 3. Configuración de Cifrado TLS/SSL Insegura\n` +
+                        `   - Detalles: Certificado auto-firmado y habilitación de cifrados legacy (RC4/MD5).\n`;
+
+                    const report_en = `# APOPHIS Vulnerability Audit Report - Target: ${target}\n` +
+                        `Date: 2026-06-07 | Strategy: ${selectedStrategy} | Active Workers: ${workers}\n\n` +
+                        `## [CRITICAL] 1. CVE-2026-0899 - HTTP Parser Remote Code Execution (CVSS: 9.8)\n` +
+                        `   - Service: Apache Web Server (v2.4.49)\n` +
+                        `   - Target URI: /cgi-bin/%%32%65%%32%65/%%32%65%%32%65/bin/sh\n` +
+                        `   - Remediation: Immediately patch administrative instances to Apache Web Server v2.4.51 or higher.\n\n` +
+                        `## [HIGH] 2. Sensitive Credential Disclosure (Public .env exposed)\n` +
+                        `   - Target URI: http://${target}/.env\n` +
+                        `   - Leaked values: DB_PASSWORD, AWS_SECRET_ACCESS_KEY, JWT_SECRET\n\n` +
+                        `## [MEDIUM] 3. Insecure Cryptographic TLS/SSL Cipher Configuration\n` +
+                        `   - Technical scope: Self-signed certificate chain validated, legacy cryptographic ciphers (RC4/MD5) enabled.\n`;
+
+                    document.getElementById("report-content").textContent = currentLanguage === 'es' ? report_es : report_en;
+
+                    resultsBox.classList.remove("hidden");
+                    setTimeout(() => {
+                        resultsBox.classList.remove("scale-95", "opacity-0");
+                        resultsBox.classList.add("scale-100", "opacity-100");
+                    }, 50);
+                }
+            }
+            
+            printNextLine();
+        }
+
+        // Go check stub generator scripts
+        function fillGoStubID(cveId) {
+            document.getElementById("input-stub-cve").value = cveId;
+            generateGoStub();
+            document.getElementById("input-stub-cve").scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // Generate Go code stub structure
+        function generateGoStub() {
+            const cveId = document.getElementById("input-stub-cve").value || "CVE-2026-9911";
+            const stubCode = `package dynamic
+
+import (
+\t"net/http"
+\t"strings"
+\t"time"
+)
+
+// DynamicCheck_${cveId.replace(/[^a-zA-Z0-9]/g, '_')} checks for vulnerable instances relating to ${cveId}
+// This code-stub has been dynamically generated by the APOPHIS Research Engine.
+func DynamicCheck_${cveId.replace(/[^a-zA-Z0-9]/g, '_')}(target string) bool {
+\tclient := &http.Client{
+\t\tTimeout: 5 * time.Second,
+\t}
+
+\t// Deploying targeted check signature payload for ${cveId}
+\treq, err := http.NewRequest("GET", target + "/cgi-bin/apophis-probe?id=${cveId}", nil)
+\tif err != nil {
+\t\treturn false
+\t}
+
+\tresp, err := client.Do(req)
+\tif err != nil {
+\t\treturn false
+\t}
+\tdefer resp.Body.Close()
+
+\t// Vulnerability matched if response matches verification headers
+\tif resp.StatusCode == 200 && strings.Contains(resp.Header.Get("X-Threat-Detected"), "${cveId}") {
+\t\treturn true // Vulnerable
+\t}
+
+\treturn false
+}`;
+
+            const box = document.getElementById("stub-output-box");
+            const content = document.getElementById("stub-code-content");
+            
+            content.textContent = stubCode;
+            box.classList.remove("hidden");
+            
+            const notifyMsg = currentLanguage === 'es' ? 
+                "Stub generado para " : 
+                "Go validation stub generated successfully for ";
+            showToast(notifyMsg + cveId);
+        }
+
+        // Tab switches (Tools)
+        function switchToolTab(tabName) {
+            const btnAudit = document.getElementById('btn-tab-audit');
+            const btnResearch = document.getElementById('btn-tab-research');
+            
+            if (tabName === 'audit-tools') {
+                btnAudit.className = "tool-tab-btn px-4 sm:px-6 py-3 text-xs sm:text-sm font-semibold font-mono border-b-2 border-chaos-gold text-chaos-gold whitespace-nowrap";
+                btnResearch.className = "tool-tab-btn px-4 sm:px-6 py-3 text-xs sm:text-sm font-semibold font-mono border-b-2 border-transparent text-zinc-400 hover:text-white transition-all whitespace-nowrap";
+                document.getElementById('tab-audit-tools').classList.remove('hidden');
+                document.getElementById('tab-research-tools').classList.add('hidden');
+            } else {
+                btnResearch.className = "tool-tab-btn px-4 sm:px-6 py-3 text-xs sm:text-sm font-semibold font-mono border-b-2 border-chaos-gold text-chaos-gold whitespace-nowrap";
+                btnAudit.className = "tool-tab-btn px-4 sm:px-6 py-3 text-xs sm:text-sm font-semibold font-mono border-b-2 border-transparent text-zinc-400 hover:text-white transition-all whitespace-nowrap";
+                document.getElementById('tab-audit-tools').classList.add('hidden');
+                document.getElementById('tab-research-tools').classList.remove('hidden');
+            }
+        }
+
+        // Tab switches (Setup)
+        function switchSetupTab(tabName) {
+            const btnInstall = document.getElementById('btn-setup-install');
+            const btnConfig = document.getElementById('btn-setup-config');
+            
+            if (tabName === 'go-install') {
+                btnInstall.className = "setup-tab-btn px-4 py-2.5 text-xs font-bold font-mono border-b-2 border-chaos-gold text-chaos-gold whitespace-nowrap";
+                btnConfig.className = "setup-tab-btn px-4 py-2.5 text-xs font-bold font-mono border-b-2 border-transparent text-zinc-400 hover:text-white transition-all whitespace-nowrap";
+                document.getElementById('panel-go-install').classList.remove('hidden');
+                document.getElementById('panel-opencode-conf').classList.add('hidden');
+            } else {
+                btnConfig.className = "setup-tab-btn px-4 py-2.5 text-xs font-bold font-mono border-b-2 border-chaos-gold text-chaos-gold whitespace-nowrap";
+                btnInstall.className = "setup-tab-btn px-4 py-2.5 text-xs font-bold font-mono border-b-2 border-transparent text-zinc-400 hover:text-white transition-all whitespace-nowrap";
+                document.getElementById('panel-go-install').classList.add('hidden');
+                document.getElementById('panel-opencode-conf').classList.remove('hidden');
+            }
+        }
+
+        // Clipboard operations
+        function copyCode(elementId) {
+            const codeText = document.getElementById(elementId).textContent;
+            const successMsg = currentLanguage === 'es' ? "¡Comando copiado al portapapeles!" : "Command successfully copied!";
+            fallbackCopyText(codeText, successMsg);
+        }
+
+        function copyReport() {
+            const reportText = document.getElementById("report-content").textContent;
+            const successMsg = currentLanguage === 'es' ? "¡Reporte copiado con éxito!" : "Audit report saved to clipboard!";
+            fallbackCopyText(reportText, successMsg);
+        }
+
+        function copyStub() {
+            const stubText = document.getElementById("stub-code-content").textContent;
+            const successMsg = currentLanguage === 'es' ? "¡Código del Stub copiado!" : "Check-stub implementation copied!";
+            fallbackCopyText(stubText, successMsg);
+        }
+
+        function fallbackCopyText(text, successMsg) {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.top = "0";
+            textArea.style.left = "0";
+            textArea.style.position = "fixed";
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    showToast(successMsg);
+                } else {
+                    showToast(currentLanguage === 'es' ? "No se pudo copiar de manera automática." : "Manual backup required, automatic clipboard blocked.");
+                }
+            } catch (err) {
+                showToast(currentLanguage === 'es' ? "Error al copiar." : "Error while modifying clipboard values.");
+            }
+
+            document.body.removeChild(textArea);
+        }
+    </script>
+</body>
+</html>
