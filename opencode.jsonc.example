@@ -1,0 +1,14 @@
+{
+  "mcp": {
+    "apophis": {
+      "type": "local",
+      "command": ["/home/eduardo/project/security/bin/apophis"],
+      "enabled": true,
+      "env": {
+        "APOPHIS_STORE": "/home/eduardo/.apophis/reports",
+        "APOPHIS_WORKERS": "6",
+        "APOPHIS_TIMEOUT": "5s"
+      }
+    }
+  }
+}
