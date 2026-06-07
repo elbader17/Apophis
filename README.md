@@ -9,11 +9,11 @@ A **Model Context Protocol (MCP) server** for [OpenCode](https://github.com/sst/
 - **Exploit tool generator** that produces ready-to-paste Go check stubs for new CVEs
 
 ```
-    _    ____   ___  _   _ ____
-   / \  |  _ \ / _ \| \ | |  _ \
-  / _ \ | |_) | | | |  \| | |_) |
- / ___ \|  __/| |_| | |\  |  _ <
-/_/   \_\_|    \___/|_| \_|_| \_\
+ █████  ██████  ██████  ██   ██ ██  ██████  ███████
+██   ██ ██   ██ ██   ██ ██   ██ ██ ██    ██ ██
+███████ ██████  ██████  ███████ ██ ██    ██ ███████
+██   ██ ██      ██   ██      ██ ██ ██    ██      ██
+██   ██ ██      ██   ██      ██ ██  ██████  ███████
     vulnerability chaos engine
 ```
 
