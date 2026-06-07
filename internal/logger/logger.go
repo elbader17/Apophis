@@ -97,11 +97,11 @@ func Debug(tag, msg string) {
 func Banner() {
 	c := color.New(color.FgRed, color.Bold)
 	fmt.Fprintln(out())
-	c.Fprintln(out(), " █████  ██████  ██████  ██   ██ ██  ██████  ███████ ")
-	c.Fprintln(out(), "██   ██ ██   ██ ██   ██ ██   ██ ██ ██    ██ ██      ")
-	c.Fprintln(out(), "███████ ██████  ██████  ███████ ██ ██    ██ ███████ ")
-	c.Fprintln(out(), "██   ██ ██      ██   ██      ██ ██ ██    ██      ██ ")
-	c.Fprintln(out(), "██   ██ ██      ██   ██      ██ ██  ██████  ███████ ")
+	c.Fprintln(out(), ` █████  ██████  ██   ██  █████  ██████  ██    ██ ██ ███████`)
+	c.Fprintln(out(), `██   ██ ██   ██ ██   ██ ██   ██ ██   ██ ██    ██ ██ ██`)
+	c.Fprintln(out(), `███████ ██████  ███████ ██   ██ ██████  ████████ ██ ███████ `)
+	c.Fprintln(out(), `██   ██ ██      ██   ██ ██   ██ ██      ██    ██ ██      ██`)
+	c.Fprintln(out(), `██   ██ ██      ██   ██  █████  ██      ██    ██ ██ ███████`)
 	color.New(color.FgWhite, color.FgHiBlack).Fprintln(out(), "    vulnerability chaos engine")
 	fmt.Fprintln(out())
 }
