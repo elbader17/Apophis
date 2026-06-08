@@ -13,6 +13,7 @@ import (
 	"github.com/apophis-eng/apophis/internal/logger"
 	"github.com/apophis-eng/apophis/internal/models"
 	"github.com/apophis-eng/apophis/internal/orchestrator"
+	"github.com/apophis-eng/apophis/internal/poc"
 	"github.com/apophis-eng/apophis/internal/research"
 	"github.com/apophis-eng/apophis/internal/store"
 	"github.com/apophis-eng/apophis/internal/tools/cve"
@@ -32,6 +33,7 @@ type Server struct {
 	defaultW   int
 	defaultTO  time.Duration
 	lastReport string
+	exec       *poc.State
 }
 
 type AuditInput struct {
@@ -111,8 +113,43 @@ type GenerateStubInput struct {
 	CVE string `json:"cve" jsonschema:"CVE id to generate a Go check stub for"`
 }
 
-func NewServer(s *store.Store, dyn *dynamic.Store, agent *research.Agent, defaultWorkers int, defaultTimeout time.Duration) *Server {
-	return &Server{store: s, dynamic: dyn, agent: agent, defaultW: defaultWorkers, defaultTO: defaultTimeout}
+type PoCListInput struct {
+	CVE     string `json:"cve,omitempty" jsonschema:"filter by CVE id"`
+	Source  string `json:"source,omitempty" jsonschema:"filter by source (exploitdb,ghsa,...)"`
+	MinRisk string `json:"min_risk,omitempty" jsonschema:"minimum risk (info,safe,rce,destructive)"`
+	MaxRisk string `json:"max_risk,omitempty" jsonschema:"maximum risk (info,safe,rce,destructive)"`
+	Limit   int    `json:"limit,omitempty" jsonschema:"max results (default 25)"`
+}
+
+type PoCRunInput struct {
+	PoCID        string   `json:"poc_id" jsonschema:"PoC id from apophis_poc_list"`
+	Target       string   `json:"target" jsonschema:"hostname or IP to attack (must be in allowlist)"`
+	SandboxLevel string   `json:"sandbox_level,omitempty" jsonschema:"L1 (default), L2 (container) or L3 (microVM)"`
+	TimeoutSec   int      `json:"timeout_sec,omitempty" jsonschema:"max execution time in seconds"`
+	Confirm      bool     `json:"confirm" jsonschema:"MUST be the literal boolean true to run"`
+	ExtraArgs    []string `json:"extra_args,omitempty" jsonschema:"additional CLI args, validated against PoC allowlist"`
+	UserNote     string   `json:"user_note,omitempty" jsonschema:"optional human-readable note for the audit log"`
+}
+
+type PoCKillInput struct {
+	ExecutionID string `json:"execution_id" jsonschema:"id returned by apophis_poc_run"`
+}
+
+type PoCHistoryInput struct {
+	Target string `json:"target,omitempty" jsonschema:"filter by target"`
+	Since  string `json:"since,omitempty" jsonschema:"RFC3339 timestamp; only return executions after"`
+	Limit  int    `json:"limit,omitempty" jsonschema:"max results (default 50)"`
+}
+
+type PoCAllowlistInput struct {
+	Action string `json:"action" jsonschema:"add | list | remove"`
+	Target string `json:"target,omitempty" jsonschema:"target to add/remove (IP, CIDR, or hostname)"`
+	Note   string `json:"note,omitempty" jsonschema:"optional human-readable note"`
+}
+
+func NewServer(s *store.Store, dyn *dynamic.Store, agent *research.Agent, execState *poc.State, defaultWorkers int, defaultTimeout time.Duration) *Server {
+	srv := &Server{store: s, dynamic: dyn, agent: agent, defaultW: defaultWorkers, defaultTO: defaultTimeout, exec: execState}
+	return srv
 }
 
 func (s *Server) Register(server *mcp.Server) {
@@ -180,6 +217,36 @@ func (s *Server) Register(server *mcp.Server) {
 		Name:        "apophis_generate_stub",
 		Description: "Generate a Go check stub for a given CVE that can be pasted into the static database. Use after apophis_research to promote a critical CVE to a permanent check.",
 	}, s.handleGenerateStub)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "apophis_poc_list",
+		Description: "List PoCs (Proofs-of-Concept) in the local PoC store, optionally filtered by CVE, source, or risk range. The PoC executor must be enabled at startup (-enable-executor) to have a populated store.",
+	}, s.handlePoCList)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "apophis_poc_preview",
+		Description: "Preview what apophis_poc_run would do (cmd, env, sandbox, timeout) WITHOUT executing. Use this BEFORE apophis_poc_run to confirm the exact command that will be invoked. Does not require confirm:true.",
+	}, s.handlePoCPreview)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "apophis_poc_run",
+		Description: "Execute a PoC against a target. REQUIRES confirm:true (literal boolean, not the string 'true'). The target MUST be in the operator-managed allowlist. The PoC's risk level MUST NOT exceed the -max-risk configured at startup. The execution is recorded in an HMAC-signed audit log. Returns an execution_id and result.",
+	}, s.handlePoCRun)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "apophis_poc_history",
+		Description: "List past PoC executions with their target, risk, sandbox level, exit code, and whether the exploit was verified. Optionally filter by target and since-timestamp.",
+	}, s.handlePoCHistory)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "apophis_poc_kill",
+		Description: "Kill a running PoC execution. Use the execution_id returned by apophis_poc_run. This is the kill switch for long-running PoCs that exceed reasonable bounds.",
+	}, s.handlePoCKill)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "apophis_poc_allowlist",
+		Description: "Manage the allowlist of targets that the PoC executor is permitted to attack. Action 'add' or 'remove' require the target argument. Action 'list' returns the current allowlist.",
+	}, s.handlePoCAllowlist)
 }
 
 func (s *Server) handleAudit(ctx context.Context, req *mcp.CallToolRequest, in AuditInput) (*mcp.CallToolResult, any, error) {
@@ -619,6 +686,212 @@ func (s *Server) handleGenerateStub(ctx context.Context, req *mcp.CallToolReques
 		}
 	}
 	return errorResult("CVE " + in.CVE + " not found in dynamic store; run apophis_research first"), nil, nil
+}
+
+func (s *Server) handlePoCList(ctx context.Context, req *mcp.CallToolRequest, in PoCListInput) (*mcp.CallToolResult, any, error) {
+	if s.exec == nil || s.exec.Executor == nil {
+		return errorResult("PoC executor is not enabled (start the server with -enable-executor)"), nil, nil
+	}
+	limit := in.Limit
+	if limit <= 0 {
+		limit = 25
+	}
+	min := poc.ParseRisk(in.MinRisk)
+	max := poc.ParseRisk(in.MaxRisk)
+	if min < 0 {
+		min = -1
+	}
+	if max < 0 {
+		max = poc.RiskDestructive
+	}
+	results := s.exec.Executor.ListPoCs(in.CVE, in.Source, min, max, limit)
+	out := make([]map[string]any, 0, len(results))
+	for _, p := range results {
+		out = append(out, pocSummary(p))
+	}
+	return jsonResult(map[string]any{
+		"count":    len(out),
+		"results":  out,
+		"executor": s.exec.Config.Enabled,
+		"max_risk": s.exec.Config.MaxRisk.String(),
+		"tip":      "use apophis_poc_preview before apophis_poc_run to see the exact command",
+	})
+}
+
+func (s *Server) handlePoCPreview(ctx context.Context, req *mcp.CallToolRequest, in struct {
+	PoCID        string `json:"poc_id"`
+	Target       string `json:"target"`
+	SandboxLevel string `json:"sandbox_level,omitempty"`
+	TimeoutSec   int    `json:"timeout_sec,omitempty"`
+}) (*mcp.CallToolResult, any, error) {
+	if s.exec == nil || s.exec.Executor == nil {
+		return errorResult("PoC executor is not enabled"), nil, nil
+	}
+	if in.PoCID == "" {
+		return errorResult("poc_id is required"), nil, nil
+	}
+	if in.Target == "" {
+		return errorResult("target is required"), nil, nil
+	}
+	poC, err := s.exec.Executor.GetPoC(in.PoCID)
+	if err != nil {
+		return errorResult("PoC not found: " + err.Error()), nil, nil
+	}
+	req2 := poc.RunRequest{
+		PoC:          poC,
+		Target:       in.Target,
+		SandboxLevel: poc.SandboxLevel(in.SandboxLevel),
+		TimeoutSec:   in.TimeoutSec,
+		Confirm:      true,
+	}
+	res, err := s.exec.Executor.Preview(req2)
+	if err != nil {
+		return errorResult(err.Error()), nil, nil
+	}
+	return jsonResult(map[string]any{
+		"poc":           pocSummary(poC),
+		"target":        in.Target,
+		"sandbox_level": res.SandboxLevel,
+		"sandbox_info":  res.SandboxInfo,
+		"dry_run":       res.DryRun,
+		"preview_only":  true,
+		"stdout":        res.Stdout,
+		"next":          "if the command looks right, call apophis_poc_run with confirm:true",
+	})
+}
+
+func (s *Server) handlePoCRun(ctx context.Context, req *mcp.CallToolRequest, in PoCRunInput) (*mcp.CallToolResult, any, error) {
+	if s.exec == nil || s.exec.Executor == nil {
+		return errorResult("PoC executor is not enabled (start the server with -enable-executor)"), nil, nil
+	}
+	if in.PoCID == "" {
+		return errorResult("poc_id is required"), nil, nil
+	}
+	if in.Target == "" {
+		return errorResult("target is required"), nil, nil
+	}
+	if !in.Confirm {
+		return errorResult("confirm:true (literal boolean) is required to run a PoC — refuse to execute"), nil, nil
+	}
+	poC, err := s.exec.Executor.GetPoC(in.PoCID)
+	if err != nil {
+		return errorResult("PoC not found: " + err.Error()), nil, nil
+	}
+	rreq := poc.RunRequest{
+		PoC:          poC,
+		Target:       in.Target,
+		SandboxLevel: poc.SandboxLevel(in.SandboxLevel),
+		TimeoutSec:   in.TimeoutSec,
+		Confirm:      in.Confirm,
+		ExtraArgs:    in.ExtraArgs,
+		UserNote:     in.UserNote,
+	}
+	res, err := s.exec.Executor.Run(ctx, rreq)
+	if err != nil {
+		return errorResult("execution failed: " + err.Error()), nil, nil
+	}
+	return jsonResult(map[string]any{
+		"execution_id":    res.ExecutionID,
+		"started_at":      res.StartedAt,
+		"finished_at":     res.FinishedAt,
+		"duration_ms":     res.DurationMs,
+		"target":          in.Target,
+		"poc":             pocSummary(poC),
+		"sandbox_level":   res.SandboxLevel,
+		"sandboxed":       res.Sandboxed,
+		"exit_code":       res.ExitCode,
+		"signal":          res.Signal,
+		"stdout":          res.Stdout,
+		"stderr":          res.Stderr,
+		"exploit_verified": res.ExploitVerified,
+		"vuln_confirmed":   res.VulnConfirmed,
+		"dry_run":          res.DryRun,
+		"next":             "use apophis_poc_history to inspect all past executions, or apophis_poc_kill to abort if still running",
+	})
+}
+
+func (s *Server) handlePoCAllowlist(ctx context.Context, req *mcp.CallToolRequest, in PoCAllowlistInput) (*mcp.CallToolResult, any, error) {
+	if s.exec == nil || s.exec.Allowlist == nil {
+		return errorResult("PoC executor is not enabled"), nil, nil
+	}
+	switch in.Action {
+	case "list":
+		return jsonResult(map[string]any{
+			"count":   s.exec.Allowlist.Len(),
+			"entries": s.exec.Allowlist.List(),
+		})
+	case "add":
+		if in.Target == "" {
+			return errorResult("target is required to add"), nil, nil
+		}
+		if err := s.exec.Allowlist.Add(in.Target, in.Note); err != nil {
+			return errorResult(err.Error()), nil, nil
+		}
+		return jsonResult(map[string]any{"added": in.Target, "note": in.Note})
+	case "remove":
+		if in.Target == "" {
+			return errorResult("target is required to remove"), nil, nil
+		}
+		if !s.exec.Allowlist.Remove(in.Target) {
+			return errorResult("target not in allowlist: " + in.Target), nil, nil
+		}
+		return jsonResult(map[string]any{"removed": in.Target})
+	default:
+		return errorResult("action must be one of: list, add, remove"), nil, nil
+	}
+}
+
+func (s *Server) handlePoCKill(ctx context.Context, req *mcp.CallToolRequest, in PoCKillInput) (*mcp.CallToolResult, any, error) {
+	if s.exec == nil || s.exec.Executor == nil {
+		return errorResult("PoC executor is not enabled"), nil, nil
+	}
+	if in.ExecutionID == "" {
+		return errorResult("execution_id is required"), nil, nil
+	}
+	if err := s.exec.Executor.Kill(in.ExecutionID); err != nil {
+		return errorResult(err.Error()), nil, nil
+	}
+	return jsonResult(map[string]any{"killed": in.ExecutionID})
+}
+
+func (s *Server) handlePoCHistory(ctx context.Context, req *mcp.CallToolRequest, in PoCHistoryInput) (*mcp.CallToolResult, any, error) {
+	if s.exec == nil || s.exec.Audit == nil {
+		return errorResult("PoC executor is not enabled"), nil, nil
+	}
+	limit := in.Limit
+	if limit <= 0 {
+		limit = 50
+	}
+	var since time.Time
+	if in.Since != "" {
+		if t, err := time.Parse(time.RFC3339, in.Since); err == nil {
+			since = t
+		}
+	}
+	entries, err := s.exec.Audit.List(since, in.Target, limit)
+	if err != nil {
+		return errorResult(err.Error()), nil, nil
+	}
+	return jsonResult(map[string]any{
+		"count":   len(entries),
+		"entries": entries,
+		"note":    "all entries are HMAC-signed; tampering is detected on read",
+	})
+}
+
+func pocSummary(p *poc.PoC) map[string]any {
+	return map[string]any{
+		"id":           p.ID,
+		"cve":          p.CVE,
+		"source":       p.Source,
+		"title":        p.Title,
+		"type":         p.Type,
+		"risk":         p.Risk.String(),
+		"requires_net": p.RequiresNet,
+		"signature":    p.Signature,
+		"args":         p.Args,
+		"created_at":   p.CreatedAt,
+	}
 }
 
 func parsePorts(s string) []int {

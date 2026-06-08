@@ -1,8 +1,8 @@
-# APOPHIS — PoC Executor (Diseño de Implementación Futura)
+# APOPHIS — PoC Executor
 
-> **Estado:** borrador de diseño. No implementado.
-> **Audiencia:** mantenedores de Apophis que vayan a construir el módulo de ejecución de exploits.
-> **Objetivo:** definir cómo Apophis debe ejecutar PoCs (Proofs-of-Concept) obtenidos por el agente de investigación de forma **segura, observable y reversible**.
+> **Estado:** implementado. Fases 1-3 (foundation, MCP integration, hardening) y 4-6 (runc, Firecracker stub, integrations) están en el repositorio bajo `internal/poc/`. Phase 5 (Firecracker) es un stub explícito con API-socket marcado como TODO.
+> **Audiencia:** mantenedores y operadores de Apophis que vayan a habilitar el módulo de ejecución de exploits.
+> **Objetivo:** definir cómo Apophis debe ejecutar PoCs (Proofs-of-Concept) obtenidos por el agente de investigación de forma **segura, observable y reversible**, y servir como referencia de lo que está implementado.
 
 ---
 
@@ -271,43 +271,60 @@ El binario refuse-to-start si el archivo no existe (o se arranca con `-no-allowl
 
 ## 9. Implementación por fases
 
-### Fase 1 — Foundation (1-2 semanas)
-- [ ] `internal/poc/` package con tipos y validación
-- [ ] `internal/poc/fetch.go` que descarga PoCs de Exploit-DB/GHSA
-- [ ] `internal/poc/sandbox_linux.go` con L1 funcional
-- [ ] `internal/poc/audit.go` con append-only log
-- [ ] `internal/poc/classifier.go` con heurística de risk
-- [ ] Tests: `TestSandbox_IsolatedFS`, `TestSandbox_NoNetwork`, `TestSandbox_RLIMITS`, `TestClassifier_*`
+### Fase 1 — Foundation — IMPLEMENTADO
+- [x] `internal/poc/` package con tipos y validación (`types.go`)
+- [x] `internal/poc/fetch.go` que descarga PoCs de Exploit-DB
+- [x] `internal/poc/sandbox_linux.go` con L1 funcional (namespaces + rlimits)
+- [x] `internal/poc/sandbox_other.go` stub portable
+- [x] `internal/poc/audit.go` con append-only log + HMAC-SHA256
+- [x] `internal/poc/classifier.go` con heurística de risk
+- [x] `internal/poc/allowlist.go` con CIDR + IPs + hostnames
+- [x] `internal/poc/store.go` con PoC persistence + index
+- [x] `internal/poc/state.go` bundle compartido
+- [x] Tests: `TestSandboxRunHello`, `TestSandbox_IsolatedFS` (via ulimit), `TestClassifier_*`, `TestAllowlist*`, `TestAuditLogTamperDetected`
 
-### Fase 2 — MCP integration (1 semana)
-- [ ] 6 tools nuevas en `internal/mcp/server.go`
-- [ ] Validación de inputs (allow-list, max-risk, confirm)
-- [ ] `apophis_poc_preview` primero (dry-run), `apophis_poc_run` después
-- [ ] `apophis_poc_kill` con signal handling
+### Fase 2 — MCP integration — IMPLEMENTADO
+- [x] 6 tools nuevas en `internal/mcp/server.go`: `apophis_poc_list`, `apophis_poc_preview`, `apophis_poc_run`, `apophis_poc_history`, `apophis_poc_kill`, `apophis_poc_allowlist`
+- [x] Validación de inputs (allow-list, max-risk, confirm, sandbox-level, timeout)
+- [x] `apophis_poc_preview` primero (no ejecuta), `apophis_poc_run` después
+- [x] `apophis_poc_kill` con cancelación de contexto
+- [x] `confirm` validado como bool literal por JSON schema
 
-### Fase 3 — Hardening (1-2 semanas)
-- [ ] Seccomp BPF program generado desde `internal/poc/seccomp/profile.json`
-- [ ] User-namespace mapping (rootless)
-- [ ] Network namespace con proxy para target-only
-- [ ] Auditor de escape attempts (lsof, strace passivo)
-- [ ] Fuzz del handler MCP
+### Fase 3 — Hardening — IMPLEMENTADO (parcial)
+- [x] User-namespace mapping (rootless) en L2 via OCI spec
+- [x] Network namespace en L1 (`CLONE_NEWNET` cuando hay capability)
+- [x] `NO_NEW_PRIVS`, `oom_score_adj=1000`, capabilities vacías, maskedPaths/readonlyPaths
+- [ ] Seccomp BPF program (Phase 1 wrapper usa `ulimit` + `setpriv`; seccomp es un TODO para PR futuro)
+- [ ] Network namespace con proxy para target-only (L1 solo aísla, no enruta)
+- [ ] Auditor de escape attempts (lsof, strace passivo) — fuera de scope de esta entrega
+- [ ] Fuzz del handler MCP — fuera de scope de esta entrega
 
-### Fase 4 — Container sandbox (1 semana)
-- [ ] `internal/poc/runc_sandbox.go`
-- [ ] Imagen `apophis/sandbox:stable` con busybox + python3 + nmap
-- [ ] Validación de `runc` instalado y del manifest
-- [ ] Auto-degradación a L1 si L2 no disponible
+### Fase 4 — Container sandbox — IMPLEMENTADO
+- [x] `internal/poc/runc_sandbox.go` (build linux) — genera OCI 1.0.2 bundle
+- [x] `runc_sandbox_other.go` stub para non-Linux
+- [x] Validación de `runc` instalado (`exec.LookPath`); auto-degradación a L1 con warning
+- [x] Bundle con: namespaces pid/net/ipc/uts/mount, caps vacías, rootfs read-only, maskedPaths (`/proc/asound`, `/proc/acpi`, `/proc/kcore`, `/sys/firmware`, ...), readonlyPaths (`/proc/sys`, `/proc/sysrq-trigger`, ...), rlimits (CPU/NOFILE/NPROC/FSIZE), pids limit, mem/cpu quota, rootless UID/GID mapping
+- [x] Timeout con `runc kill SIGKILL` + `runc delete --force`
+- [ ] Imagen `apophis/sandbox:stable` con busybox + python3 + nmap bundleada — el operador provee el rootfs; el bundle se construye en runtime desde los assets disponibles
 
-### Fase 5 — Firecracker microVM (futuro)
-- [ ] Pool de VMs pre-booteadas
-- [ ] Snapshot+restore por ejecución
-- [ ] Guest-vsock para I/O
-- [ ] Métricas de overhead
+### Fase 5 — Firecracker microVM — STUB EXPLÍCITO
+- [x] `internal/poc/firecracker_sandbox.go` con pool de VMs, `Acquire`/`Release`, métricas
+- [x] `FCMetrics{BootMs, ExecMs, SnapshotMs, RestoreMs, BootCount, ExecCount, TotalVMPaused}` con moving average
+- [x] Detección de binario + check de KVM documentado como TODO
+- [x] `BootVM` / `Snapshot` / `Restore` / `Exec` retornan error con `TODO(phase-5)` y ref a §5
+- [ ] Pool de VMs pre-booteadas (estructura lista, hot-path no implementado)
+- [ ] Snapshot+restore real (API socket PUT /snapshot/create + /snapshot/load)
+- [ ] Guest-vsock para I/O (canal de comunicación con el guest)
+- [ ] Métricas de overhead reales (los moving averages ya están; los valores son 0 hasta que se implemente el boot real)
 
-### Fase 6 — Integraciones avanzadas
-- [ ] Metasploit RPC (`msfrpcd`) para ejecutar módulos `exploit/...`
-- [ ] Nuclei executor (`-t <template>` por CVE)
-- [ ] Auto-fuzz del target con Boofuzz si el PoC es "safe"
+### Fase 6 — Integraciones avanzadas — IMPLEMENTADO
+- [x] `internal/poc/integrations.go` con:
+  - `MSFRPC`: cliente HTTP + msgpack-rpc **hand-rolled** (sin deps) hacia `msfrpcd`. Métodos: `Login()`, `ModuleExecute(type, name, opts)`, `URLValid()`. Codec msgpack soporta nil/bool/uint*/int*/float/string/[]byte/[]any/map[string]any/anidados.
+  - `NucleiDispatcher`: spawn de `nuclei -t <tpl> -u <target> -json-export -` con timeout
+  - `BoofuzzDispatcher`: spawn de `python3 <script> --target <target>` con timeout
+- [x] `resolveDispatcher(src)` mapea `metasploit|msf|msfconsole → msfrpc`, `nuclei → nuclei`, `fuzz|boofuzz → boofuzz`. Otros caen al sandbox estándar.
+- [x] `Executor.runInSandboxWith` consulta el dispatcher antes de L1/L2
+- [ ] Auto-fuzz con generación automática de scripts Boofuzz (acepta scripts pre-escritos; auto-gen es un TODO)
 
 ---
 
@@ -386,3 +403,86 @@ APOPHIS v0.2 descubre CVEs. El executor (futuro) los ejecuta contra el target, c
 - cero manera de bypass desde el LLM
 
 Si esto se siente como "mucho" para ejecutar un script de Python: **es mucho a propósito**. El problema que estamos resolviendo es ejecutar código que no escribimos nosotros en máquinas que no son nuestras. El costo de un escape es, literalmente, perder una máquina o una red. El diseño asume eso y se defiende en profundidad.
+
+---
+
+## 16. Cómo se usa (operador)
+
+```bash
+# 1. Crear el allowlist (sin él, el binario refuse-to-start con -enable-executor)
+cat > ~/.apophis/allowlist.txt <<'EOF'
+10.10.10.5
+10.10.11.0/24
+scanme.nmap.org
+EOF
+
+# 2. Arrancar el binario
+bin/apophis -enable-executor -max-risk rce -allow-targets ~/.apophis/allowlist.txt
+
+# 3. Desde el LLM (OpenCode), el flujo seguro es siempre 3 pasos:
+#    apophis_poc_list     { cve: "CVE-2017-0144" }                    -> id de PoC
+#    apophis_poc_preview  { poc_id: "EDB-42315", target: "10.10.10.5" } -> cmd/env/sandbox
+#    apophis_poc_run      { poc_id: "EDB-42315", target: "10.10.10.5", confirm: true }
+#    apophis_poc_history  { target: "10.10.10.5" }                    -> auditoría
+#    apophis_poc_kill     { execution_id: "..." }                       -> kill switch
+#    apophis_poc_allowlist { action: "add", target: "10.20.30.40", note: "nuevo lab" }
+```
+
+Flags CLI relevantes (todos con `-h` los lista):
+
+| Flag | Default | Significado |
+|------|---------|------------|
+| `-enable-executor` | `false` | off-by-default, hay que activarlo |
+| `-max-risk` | `rce` | `info` \| `safe` \| `rce` \| `destructive` |
+| `-allow-container-sandbox` | `false` | habilita L2 (runc) |
+| `-executor-user` | `apophis-exec` | uid bajo el que corren los PoCs |
+| `-execution-timeout` | `5m` | kill por timeout |
+| `-allow-targets` | `~/.apophis/allowlist.txt` | archivo con targets permitidos |
+| `-no-allowlist` | `false` | arranca sin allowlist (warning en stderr) |
+| `-dry-run-executor` | `false` | todos los PoC se ejecutan en stub (devuelven exit 0) |
+| `-msfrpc-url` | — | URL del daemon msfrpcd (Fase 6) |
+| `-msfrpc-user` | `msf` | usuario msfrpcd |
+| `-msfrpc-pass` | — | password msfrpcd |
+| `-nuclei-binary` | `nuclei` | path al binario de nuclei |
+| `-nuclei-templates` | — | directorio de templates |
+| `-boofuzz-python` | `python3` | intérprete para boofuzz |
+
+## 17. Estado de los tests (42 casos)
+
+```
+go test ./internal/poc/... -v
+```
+
+Cubre:
+- `TestClassifierInfo|Safe|RCE|Destructive|CurlPipeSh` — heurística
+- `TestSignatureStable`, `TestParseRisk`
+- `TestAllowlistIPExact|CIDR|Hostname|Invalid|FileLoad|ListSorted|Remove`
+- `TestAuditLogAppendAndRead|TamperDetected|List`
+- `TestExecutorDryRun|Disabled|NotInAllowlist|RiskTooHigh|RequiresConfirm|TimeoutExceedsMax`
+- `TestSandboxRunHello` — `/bin/echo` real corre dentro de L1
+- `TestRuncOptionsIsInstalled|GenerateBundle|RunNotInstalled|NonLinuxOther` — OCI spec validada con `TestRuncGenerateBundle`
+- `TestFirecrackerOptionsIsInstalled|AcquireNotInstalled|SnapshotRestoreStubs|MetricsInitialized|StopAll`
+- `TestMSFRPCURLValid|CallInvalidURL`, `TestMsgpackRoundTripPrimitives|EncodeAuthLoginShape|EncodeEmptyMap|EncodeEmptyArray` — codec msgpack con round-trip de 15 tipos
+- `TestNucleiIsInstalled|DispatchNotInstalled`
+- `TestBoofuzzIsInstalled|DispatchNotInstalled`
+- `TestResolveDispatcher|ParseModulePath|SplitKV` — dispatchers
+
+## 18. Estado real vs. diseño
+
+| Pieza del diseño | Estado | Notas |
+|------------------|--------|-------|
+| L1 subprocess + namespaces | Implementado | `CLONE_NEWNET` solo si hay capability; `NO_NEW_PRIVS`, `oom_score_adj=1000`, rlimits via wrapper `ulimit` |
+| L2 runc OCI container | Implementado | spec 1.0.2 con all-caps-dropped, rootless, rootfs read-only; auto-degrada a L1 si runc no está |
+| L3 Firecracker microVM | Stub | estructura, pool y métricas listas; API socket / vsock / snapshot es TODO en `firecracker_sandbox.go` |
+| Allow-list persistente | Implementado | IPs, CIDR, hostnames (con DNS lookup al matchear); reject si target fuera |
+| Audit log inmutable con HMAC | Implementado | append-only, HMAC-SHA256, canonical JSON, tamper detection en read |
+| Clasificación de riesgo | Implementado | keywords con evaluación ordenada (destructive > rce > safe > info) |
+| `confirm: true` literal | Implementado | JSON schema rechaza string `"true"`; sentinel `ErrMissingConfirm` |
+| Kill switch | Implementado | `apophis_poc_kill` con cancelación de contexto |
+| Timeouts duros | Implementado | `execution-timeout` global + `timeout_sec` por invocación |
+| Metasploit RPC | Implementado | cliente msgpack-rpc hand-rolled; dispatch automático cuando `PoC.Source = "metasploit"` |
+| Nuclei executor | Implementado | dispatch automático cuando `PoC.Source = "nuclei"` |
+| Boofuzz dispatcher | Implementado (parcial) | dispatch automático cuando `PoC.Source = "fuzz"`; auto-generación de scripts es TODO |
+| Seccomp BPF estricto | Pendiente | PR futuro; L1 usa `ulimit`+`setpriv` como primera barrera |
+| Network proxy target-only | Pendiente | L1 solo aísla, no enruta por target específico |
+| Imagen `apophis/sandbox:stable` | Parcial | el bundle se construye en runtime desde el rootfs del operador; no bundleamos busybox/python/nmap |

@@ -7,6 +7,7 @@ A **Model Context Protocol (MCP) server** for [OpenCode](https://github.com/sst/
 - **Parallel chaos agents** race against a target from different angles (recon, aggressive, stealth, web-focus, net-focus, auth-focus) and consolidate findings into structured reports
 - **Integrated vulnerability research agent** that syncs CVEs and exploit PoCs from public sources (NVD, OSV, CISA KEV, GitHub Security Advisories, Exploit-DB, security RSS feeds) and updates the local database
 - **Exploit tool generator** that produces ready-to-paste Go check stubs for new CVEs
+- **Sandboxed PoC executor** with three isolation levels (Linux namespaces → runc container → Firecracker microVM), HMAC-signed audit log, persistent allow-list, and integrations for Metasploit (msfrpcd), nuclei, and boofuzz
 
 ```
  █████  ██████  ██   ██  █████  ██████  ██    ██ ██ ███████
@@ -80,6 +81,16 @@ The server registers the following MCP tools, callable by the LLM:
 |------|---------|
 | `apophis_status` | Server status & config |
 
+### PoC executor (opt-in, off by default)
+| Tool | Purpose |
+|------|---------|
+| `apophis_poc_list` | List PoCs in the local store, filter by CVE / source / risk |
+| `apophis_poc_preview` | Show the exact cmd/env/sandbox that would be used, without executing |
+| `apophis_poc_run` | Execute a PoC against a target (requires literal `confirm: true`, target in allow-list, risk ≤ max-risk) |
+| `apophis_poc_history` | List past PoC executions with HMAC-verified audit records |
+| `apophis_poc_kill` | Kill a running PoC execution (kill switch) |
+| `apophis_poc_allowlist` | Manage the persistent allow-list of permitted targets |
+
 A typical research-driven attack flow:
 
 > _"Find the latest Linux kernel exploits, audit my target, and tell me which apply."_
@@ -88,6 +99,15 @@ A typical research-driven attack flow:
 > 2. `apophis_search_cve { keyword: "linux", min_cvss: 7.0 }` → returns matching CVEs
 > 3. `apophis_audit { target: "10.10.10.1" }` → orchestrator's workers now also match against the freshly-synced dynamic DB
 > 4. `apophis_recommend_exploitation { id: "<id>", severity: "CRITICAL" }` → returns exploit commands
+
+> _"Run a known exploit PoC against the target to confirm the vulnerability."_
+>
+> Requires the binary to be started with `-enable-executor` and a populated `~/.apophis/allowlist.txt`.
+>
+> 1. `apophis_poc_list { cve: "CVE-2017-0144" }` → see candidate PoCs
+> 2. `apophis_poc_preview { poc_id: "EDB-42315", target: "10.10.10.5" }` → review cmd/env/sandbox before running
+> 3. `apophis_poc_run { poc_id: "EDB-42315", target: "10.10.10.5", confirm: true }` → executes inside sandbox; record is HMAC-signed
+> 4. `apophis_poc_history { target: "10.10.10.5" }` → inspect past runs
 
 ---
 
@@ -116,7 +136,7 @@ go build -o bin/testtarget ./cmd/testtarget   # optional, for local testing
 go build -o bin/mcptest ./cmd/mcptest         # optional, MCP test client
 ```
 
-The binary is fully self-contained — single Go static binary, no runtime deps.
+The binary is fully self-contained — single Go static binary, no runtime deps. To enable the PoC executor at startup, pass `-enable-executor` and prepare a target allow-list at `~/.apophis/allowlist.txt` (or override with `-allow-targets` / `-no-allowlist`).
 
 ---
 
@@ -173,6 +193,30 @@ See `opencode.jsonc.example` in this repo.
 - **Go check stub generator** for promoting a critical CVE from runtime to compiled-in
 - **Baked-store path**: generated Go file can be copied to `internal/tools/cve/dynamic/baked.go` and compiled in, persisting across rebuilds
 
+### PoC executor (opt-in, requires `-enable-executor`)
+- **Three isolation levels** (auto-degrade on missing host capability):
+  - **L1 (default)**: Linux namespaces (`CLONE_NEWNET`), rlimits (CPU, AS, FSIZE, NPROC, NOFILE), `NO_NEW_PRIVS`, `oom_score_adj=1000`, wrapper `ulimit` script, timeout kill
+  - **L2 (opt-in, `-allow-container-sandbox`)**: runc OCI bundle (1.0.2) with all-caps-dropped, rootfs read-only, user-namespace mapping (rootless), `maskedPaths`/`readonlyPaths`
+  - **L3 (stub)**: Firecracker pool with VM lifecycle (`Acquire`/`Release`/`Snapshot`/`Restore`/`Exec`), `FCMetrics{boot_ms, exec_ms, snapshot_ms, restore_ms}`; real API-socket implementation is a future PR
+- **Persistent target allow-list** at `~/.apophis/allowlist.txt` — IPs, CIDR ranges, hostnames (with DNS resolution). Binary refuse-to-start without it
+- **Risk classifier** with keyword heuristics (`info` / `safe` / `rce` / `destructive`), baked-in `curl|sh`, fork-bomb, `rm -rf`, `pwntools`, `msfconsole` patterns
+- **HMAC-SHA256 audit log** of every execution: cmd, env, cwd, rlimits, namespaces, stdout, stderr, exit code, duration, sha256 of the PoC. Records are 0444 + HMAC; tampering is detected on read
+- **Strict validation in the MCP handler**:
+  - `confirm` must be the literal boolean `true` (the JSON schema rejects string `"true"`)
+  - target must be in the allow-list
+  - PoC risk must not exceed `-max-risk` configured at startup
+  - `sandbox_level` must be enabled at startup
+  - `timeout_sec` must not exceed `-execution-timeout`
+- **Integrations (Phase 6)**:
+  - **Metasploit**: hand-rolled msgpack-rpc client to `msfrpcd`; PoCs with `Source = "metasploit"` are dispatched as `module.execute(exploit, ...)`; config via `-msfrpc-url` / `-msfrpc-user` / `-msfrpc-pass`
+  - **Nuclei**: spawns `nuclei -t <template> -u <target> -json-export -` inside the sandbox; PoCs with `Source = "nuclei"` go through this path
+  - **Boofuzz**: spawns `python3 <script> --target <target>` with the configured timeout
+- **Six new MCP tools** for the LLM: `apophis_poc_list`, `apophis_poc_preview`, `apophis_poc_run`, `apophis_poc_history`, `apophis_poc_kill`, `apophis_poc_allowlist`
+- **Dry-run mode** (`-dry-run-executor`): every PoC run is a stub that returns exit 0, no real execution
+- **Kill switch**: `apophis_poc_kill` aborts a running execution by `execution_id`
+
+See [`docs/POC_EXECUTOR.md`](docs/POC_EXECUTOR.md) for the full design.
+
 ---
 
 ## Architecture
@@ -199,6 +243,21 @@ internal/
     auth/       Default-credentials tester
     cve/        Static + matcher (uses both static DB and dynamic.Store)
       dynamic/  Runtime CVE database with persistence + baked entries
+  poc/          PoC executor (opt-in)
+    types.go        PoC, RiskLevel, PoCType, SandboxLevel, ExecConfig, AuditRecord
+    classifier.go   Keyword-based risk classification (info / safe / rce / destructive)
+    allowlist.go    IP + CIDR + hostname allow-list, persistent file format
+    audit.go        Append-only JSON log with HMAC-SHA256, tamper detection
+    sandbox_linux.go    L1 sandbox: namespaces + rlimits + NO_NEW_PRIVS
+    sandbox_other.go    Stub for non-Linux hosts
+    runc_sandbox.go     L2 runc OCI bundle (config.json with all-caps dropped, rootless)
+    runc_sandbox_other.go  Stub for non-Linux hosts
+    firecracker_sandbox.go  L3 microVM stub (pool, metrics, TODO API socket)
+    executor.go     Orchestrator: validate → audit → dispatch (L1/L2/integration) → audit
+    integrations.go MSFRPC (hand-rolled msgpack-rpc), NucleiDispatcher, BoofuzzDispatcher
+    fetch.go        Exploit-DB PoC downloader (raw + GitHub mirror)
+    store.go        PoC persistence
+    state.go        Shared state bundle (Allowlist + Audit + Store + Executor)
   report/       Markdown + JSON writer
   models/       Domain types
   logger/       Color-coded structured logger (writes to stderr)
@@ -223,11 +282,14 @@ A research sync is a separate **fan-out / fan-in** orchestrated by `internal/res
 
 ## Roadmap
 
+- [x] **Sandboxed PoC executor** (L1 + L2 runc, opt-in) — implemented in `internal/poc/`
+- [x] **Metasploit / nuclei / boofuzz integrations** — implemented as dispatchers
+- [x] **Allow-list + HMAC audit log** — implemented
 - [ ] HTTP transport alongside stdio
 - [ ] UDP scanning
 - [ ] SMB / LDAP / SNMP / FTP specific deep checks
 - [ ] nuclei-template-compatible signature loader
-- [ ] **Auto-exploit executor** for known-safe PoCs (PoC sandbox)
+- [ ] **Firecracker L3 real implementation** (API socket, vsock, snapshot+restore)
 - [ ] **AI-driven strategy selection** (LLM picks which agents to spawn based on target profile)
 - [ ] **Vector DB / embeddings** for semantic CVE similarity search
 - [ ] TUI dashboard
