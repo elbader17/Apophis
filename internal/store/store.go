@@ -20,19 +20,19 @@ type Store struct {
 }
 
 type ReportMeta struct {
-	ID         string    `json:"id"`
-	Target     string    `json:"target"`
-	URL        string    `json:"url"`
+	ID          string    `json:"id"`
+	Target      string    `json:"target"`
+	URL         string    `json:"url"`
 	GeneratedAt time.Time `json:"generated_at"`
-	RiskScore  int       `json:"risk_score"`
-	Critical   int       `json:"critical"`
-	High       int       `json:"high"`
-	Medium     int       `json:"medium"`
-	Low        int       `json:"low"`
-	Info       int       `json:"info"`
-	Total      int       `json:"total"`
-	Workers    int       `json:"workers"`
-	Path       string    `json:"path"`
+	RiskScore   int       `json:"risk_score"`
+	Critical    int       `json:"critical"`
+	High        int       `json:"high"`
+	Medium      int       `json:"medium"`
+	Low         int       `json:"low"`
+	Info        int       `json:"info"`
+	Total       int       `json:"total"`
+	Workers     int       `json:"workers"`
+	Path        string    `json:"path"`
 }
 
 func New(dir string) (*Store, error) {

@@ -14,10 +14,10 @@ import (
 )
 
 type Store struct {
-	mu   sync.RWMutex
-	dir  string
-	idx  map[string]string // id -> file path
-	byc  map[string][]string // cve -> []id
+	mu  sync.RWMutex
+	dir string
+	idx map[string]string   // id -> file path
+	byc map[string][]string // cve -> []id
 }
 
 func OpenStore(dir string) (*Store, error) {

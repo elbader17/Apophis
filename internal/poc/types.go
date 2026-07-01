@@ -44,9 +44,9 @@ func (t PoCType) Runtime() string {
 type RiskLevel int
 
 const (
-	RiskInfo RiskLevel = 0
-	RiskSafe RiskLevel = 1
-	RiskRCE  RiskLevel = 2
+	RiskInfo        RiskLevel = 0
+	RiskSafe        RiskLevel = 1
+	RiskRCE         RiskLevel = 2
 	RiskDestructive RiskLevel = 3
 )
 
@@ -130,10 +130,10 @@ type ExecConfig struct {
 	MSFRPCUser string
 	MSFRPCPass string
 
-	NucleiBinary      string
+	NucleiBinary       string
 	NucleiTemplatesDir string
 
-	BoofuzzPython string
+	BoofuzzPython  string
 	BoofuzzWorkDir string
 }
 
@@ -156,21 +156,21 @@ type RunRequest struct {
 }
 
 type RunResult struct {
-	ExecutionID     string         `json:"execution_id"`
-	StartedAt       time.Time      `json:"started_at"`
-	FinishedAt      time.Time      `json:"finished_at"`
-	DurationMs      int64          `json:"duration_ms"`
-	ExitCode        int            `json:"exit_code"`
-	Signal          string         `json:"signal"`
-	Stdout          string         `json:"stdout"`
-	Stderr          string         `json:"stderr"`
-	Sandboxed       bool           `json:"sandboxed"`
-	SandboxLevel    SandboxLevel   `json:"sandbox_level"`
-	SandboxInfo     AuditSandbox   `json:"sandbox_info"`
-	ExploitVerified bool           `json:"exploit_verified"`
-	VulnConfirmed   bool           `json:"vuln_confirmed"`
-	Error           string         `json:"error,omitempty"`
-	DryRun          bool           `json:"dry_run"`
+	ExecutionID     string       `json:"execution_id"`
+	StartedAt       time.Time    `json:"started_at"`
+	FinishedAt      time.Time    `json:"finished_at"`
+	DurationMs      int64        `json:"duration_ms"`
+	ExitCode        int          `json:"exit_code"`
+	Signal          string       `json:"signal"`
+	Stdout          string       `json:"stdout"`
+	Stderr          string       `json:"stderr"`
+	Sandboxed       bool         `json:"sandboxed"`
+	SandboxLevel    SandboxLevel `json:"sandbox_level"`
+	SandboxInfo     AuditSandbox `json:"sandbox_info"`
+	ExploitVerified bool         `json:"exploit_verified"`
+	VulnConfirmed   bool         `json:"vuln_confirmed"`
+	Error           string       `json:"error,omitempty"`
+	DryRun          bool         `json:"dry_run"`
 }
 
 type AuditPoC struct {

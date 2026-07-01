@@ -14,3 +14,7 @@ dynamic-cves.json
 # Local test artifacts
 *.test
 coverage.out
+
+# Generated audit reports (contain sensitive client findings)
+*-audit-report.md
+delfos-audit-report.md

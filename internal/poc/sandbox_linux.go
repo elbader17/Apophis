@@ -15,20 +15,20 @@ import (
 )
 
 type RLimits struct {
-	CPUSeconds  int64
+	CPUSeconds   int64
 	AddressBytes int64
-	FileSize    int64
-	NProc       int64
-	NOFile      int64
+	FileSize     int64
+	NProc        int64
+	NOFile       int64
 }
 
 func DefaultRLimits() RLimits {
 	return RLimits{
-		CPUSeconds:  60,
+		CPUSeconds:   60,
 		AddressBytes: 512 * 1024 * 1024,
-		FileSize:    64 * 1024 * 1024,
-		NProc:       32,
-		NOFile:      64,
+		FileSize:     64 * 1024 * 1024,
+		NProc:        32,
+		NOFile:       64,
 	}
 }
 

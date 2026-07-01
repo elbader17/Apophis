@@ -20,18 +20,18 @@ type GitHubAdvisory struct {
 func (g *GitHubAdvisory) Name() string { return "ghsa" }
 
 type ghAdvisory struct {
-	ID          string    `json:"id"`
-	DatabaseID  int       `json:"databaseId"`
+	ID          string `json:"id"`
+	DatabaseID  int    `json:"databaseId"`
 	Identifiers []struct {
 		Type  string `json:"type"`
 		Value string `json:"value"`
 	} `json:"identifiers"`
-	Description    string    `json:"description"`
-	Severity       string    `json:"severity"`
-	PublishedAt    time.Time `json:"publishedAt"`
-	UpdatedAt      time.Time `json:"updatedAt"`
-	Summary        string    `json:"summary"`
-	References     []struct {
+	Description string    `json:"description"`
+	Severity    string    `json:"severity"`
+	PublishedAt time.Time `json:"publishedAt"`
+	UpdatedAt   time.Time `json:"updatedAt"`
+	Summary     string    `json:"summary"`
+	References  []struct {
 		URL string `json:"url"`
 	} `json:"references"`
 	CVSS struct {

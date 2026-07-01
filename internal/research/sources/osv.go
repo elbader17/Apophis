@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 	"time"
-
 )
 
 type OSV struct{ Client *Client }
@@ -14,20 +13,20 @@ func (o *OSV) Name() string { return "osv" }
 
 type osvQuery struct {
 	ModifiedSince string `json:"modified_since,omitempty"`
-	Package      struct {
-		Name string `json:"name"`
+	Package       struct {
+		Name      string `json:"name"`
 		Ecosystem string `json:"ecosystem"`
 	} `json:"package,omitempty"`
 }
 
 type osvVuln struct {
-	ID         string    `json:"id"`
-	Summary    string    `json:"summary"`
-	Details    string    `json:"details"`
-	Modified   time.Time `json:"modified"`
-	Published  time.Time `json:"published"`
-	Aliases    []string  `json:"aliases"`
-	Severity   []struct {
+	ID        string    `json:"id"`
+	Summary   string    `json:"summary"`
+	Details   string    `json:"details"`
+	Modified  time.Time `json:"modified"`
+	Published time.Time `json:"published"`
+	Aliases   []string  `json:"aliases"`
+	Severity  []struct {
 		Type  string `json:"type"`
 		Score string `json:"score"`
 	} `json:"severity"`

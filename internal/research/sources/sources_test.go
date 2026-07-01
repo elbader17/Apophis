@@ -8,9 +8,9 @@ import (
 func TestExtractCVE(t *testing.T) {
 	cases := map[string]string{
 		"Critical RCE in FooBar (CVE-2024-12345) exploited in the wild": "CVE-2024-12345",
-		"Multiple issues including CVE-2023-1234 and CVE-2023-5678":    "CVE-2023-1234",
-		"no cve here":                                                   "",
-		"CVE-2024-99999 is the big one":                                 "CVE-2024-99999",
+		"Multiple issues including CVE-2023-1234 and CVE-2023-5678":     "CVE-2023-1234",
+		"no cve here":                   "",
+		"CVE-2024-99999 is the big one": "CVE-2024-99999",
 	}
 	for in, want := range cases {
 		got := extractCVE(in)

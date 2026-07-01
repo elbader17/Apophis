@@ -26,19 +26,19 @@ var (
 )
 
 type Executor struct {
-	cfg       ExecConfig
-	audit     *AuditLog
-	allow     *Allowlist
-	store     *Store
-	classif   *Classifier
-	fetcher   *Fetcher
-	msf       *MSFRPC
-	nuclei    NucleiDispatcher
-	fuzz      BoofuzzDispatcher
-	killHook  context.CancelFunc
+	cfg      ExecConfig
+	audit    *AuditLog
+	allow    *Allowlist
+	store    *Store
+	classif  *Classifier
+	fetcher  *Fetcher
+	msf      *MSFRPC
+	nuclei   NucleiDispatcher
+	fuzz     BoofuzzDispatcher
+	killHook context.CancelFunc
 
-	mu        sync.Mutex
-	running   map[string]*runningExec
+	mu      sync.Mutex
+	running map[string]*runningExec
 }
 
 type runningExec struct {
@@ -142,7 +142,7 @@ func (e *Executor) Run(ctx context.Context, req RunRequest) (*RunResult, error) 
 			Risk:      poC.Risk.String(),
 			Source:    poC.Source,
 		},
-		Target: req.Target,
+		Target:  req.Target,
 		Sandbox: e.sandboxInfo(req, workdir),
 		Cmd:     cmd,
 		Env:     env,
@@ -351,11 +351,11 @@ func (e *Executor) sandboxInfo(req RunRequest, workdir string) AuditSandbox {
 		Level:      string(level),
 		Namespaces: used,
 		Rlimits: map[string]int64{
-			"cpu":     r.CPUSeconds,
-			"as":      r.AddressBytes,
-			"fsize":   r.FileSize,
-			"nproc":   r.NProc,
-			"nofile":  r.NOFile,
+			"cpu":    r.CPUSeconds,
+			"as":     r.AddressBytes,
+			"fsize":  r.FileSize,
+			"nproc":  r.NProc,
+			"nofile": r.NOFile,
 		},
 		Seccomp: "apophis-strict-v1",
 		Workdir: workdir,
@@ -432,11 +432,11 @@ func (e *Executor) runInSandboxWith(ctx context.Context, pocSource string, level
 	case SandboxL2, SandboxL1:
 		if level == SandboxL2 && e.cfg.AllowContainer {
 			rs := NewRuncSandbox(RuncOptions{
-				BundleDir:   workdir,
-				Cmd:         cmd,
-				Env:         env,
-				Workdir:     "/",
-				Timeout:     e.executionTimeoutFromCtx(ctx),
+				BundleDir: workdir,
+				Cmd:       cmd,
+				Env:       env,
+				Workdir:   "/",
+				Timeout:   e.executionTimeoutFromCtx(ctx),
 			})
 			if rs.opts.IsInstalled() {
 				res, err := rs.Run(ctx)

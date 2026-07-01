@@ -12,19 +12,19 @@ import (
 type FCState string
 
 const (
-	FCStateIdle   FCState = "idle"
-	FCStateBooted FCState = "booted"
-	FCStateBusy   FCState = "busy"
+	FCStateIdle    FCState = "idle"
+	FCStateBooted  FCState = "booted"
+	FCStateBusy    FCState = "busy"
 	FCStateStopped FCState = "stopped"
 )
 
 type FCMetrics struct {
-	BootMs    int64 `json:"boot_ms"`
-	ExecMs    int64 `json:"exec_ms"`
-	SnapshotMs int64 `json:"snapshot_ms"`
-	RestoreMs int64 `json:"restore_ms"`
-	BootCount int64 `json:"boot_count"`
-	ExecCount int64 `json:"exec_count"`
+	BootMs        int64 `json:"boot_ms"`
+	ExecMs        int64 `json:"exec_ms"`
+	SnapshotMs    int64 `json:"snapshot_ms"`
+	RestoreMs     int64 `json:"restore_ms"`
+	BootCount     int64 `json:"boot_count"`
+	ExecCount     int64 `json:"exec_count"`
 	TotalVMPaused int64 `json:"total_vm_paused"`
 }
 
@@ -42,14 +42,14 @@ type FCVM struct {
 }
 
 type FirecrackerOptions struct {
-	Binary       string
-	KernelImage  string
-	Rootfs       string
-	VCPUCount    int
-	MemSizeMiB   int
-	PoolSize     int
-	SocketDir    string
-	BlockDir     string
+	Binary      string
+	KernelImage string
+	Rootfs      string
+	VCPUCount   int
+	MemSizeMiB  int
+	PoolSize    int
+	SocketDir   string
+	BlockDir    string
 }
 
 func DefaultFirecrackerOptions() FirecrackerOptions {

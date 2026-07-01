@@ -91,9 +91,9 @@ func (c *Client) Post(ctx context.Context, u string, payload []byte) ([]byte, er
 
 // nvdResponse matches the relevant parts of the NVD CVE 2.0 API.
 type nvdResponse struct {
-	ResultsPerPage int `json:"resultsPerPage"`
-	StartIndex     int `json:"startIndex"`
-	TotalResults   int `json:"totalResults"`
+	ResultsPerPage  int `json:"resultsPerPage"`
+	StartIndex      int `json:"startIndex"`
+	TotalResults    int `json:"totalResults"`
 	Vulnerabilities []struct {
 		CVE struct {
 			ID           string    `json:"id"`
@@ -251,7 +251,6 @@ func splitFields(s string, n int) []string {
 	out = append(out, s[start:])
 	return out
 }
-
 
 func ctxToCtx(c SourceContext) context.Context {
 	return context.Background()

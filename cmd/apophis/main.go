@@ -99,12 +99,17 @@ func main() {
 		noAllowlist    = flag.Bool("no-allowlist", false, "start without an allowlist (warning)")
 		dryRun         = flag.Bool("dry-run-executor", false, "stub all PoC runs (no real execution)")
 
-		msfrpcURL    = flag.String("msfrpc-url", "", "metasploit msfrpcd URL (e.g. http://127.0.0.1:55553)")
-		msfrpcUser   = flag.String("msfrpc-user", "msf", "msfrpcd username")
-		msfrpcPass   = flag.String("msfrpc-pass", "", "msfrpcd password")
-		nucleiBin    = flag.String("nuclei-binary", "nuclei", "path to nuclei binary")
-		nucleiTpl    = flag.String("nuclei-templates", "", "path to nuclei templates directory")
-		boofuzzPy    = flag.String("boofuzz-python", "python3", "python3 binary for boofuzz")
+		msfrpcURL  = flag.String("msfrpc-url", "", "metasploit msfrpcd URL (e.g. http://127.0.0.1:55553)")
+		msfrpcUser = flag.String("msfrpc-user", "msf", "msfrpcd username")
+		msfrpcPass = flag.String("msfrpc-pass", "", "msfrpcd password")
+		nucleiBin  = flag.String("nuclei-binary", "nuclei", "path to nuclei binary")
+		nucleiTpl  = flag.String("nuclei-templates", "", "path to nuclei templates directory")
+		boofuzzPy  = flag.String("boofuzz-python", "python3", "python3 binary for boofuzz")
+
+		tiGreyNoise  = flag.String("ti-greynoise-key", os.Getenv("APOPHIS_GREYNOISE_KEY"), "GreyNoise community API key")
+		tiShodan     = flag.String("ti-shodan-key", os.Getenv("APOPHIS_SHODAN_KEY"), "Shodan API key (Shodan InternetDB is always free)")
+		tiAbuseIPDB  = flag.String("ti-abuseipdb-key", os.Getenv("APOPHIS_ABUSEIPDB_KEY"), "AbuseIPDB API key")
+		tiVirusTotal = flag.String("ti-virustotal-key", os.Getenv("APOPHIS_VIRUSTOTAL_KEY"), "VirusTotal API key")
 	)
 	flag.Usage = func() { fmt.Fprint(os.Stderr, usage) }
 	flag.Parse()
@@ -169,7 +174,21 @@ func main() {
 		Instructions: "Apophis is a vulnerability chaos engine with an integrated vulnerability research agent. Use apophis_audit for a full multi-strategy scan, apophis_check_cve / apophis_recent_cves / apophis_search_cve to look up CVEs, and apophis_research to sync the latest vulnerabilities from NVD/OSV/CISA-KEV/GHSA/Exploit-DB/security RSS feeds. Only run against systems you own or are authorized to test.",
 	})
 
-	apomcp.NewServer(st, dyn, agent, execState, *workers, *timeout).Register(srv)
+	apomcp.NewServer(apomcp.ServerOpts{
+		Store:       st,
+		Dynamic:     dyn,
+		Agent:       agent,
+		ExecState:   execState,
+		DefaultWork: *workers,
+		DefaultTO:   *timeout,
+		NucleiDir:   *nucleiTpl,
+		TIKeys: apomcp.ThreatIntelKeys{
+			GreyNoise:  *tiGreyNoise,
+			Shodan:     *tiShodan,
+			AbuseIPDB:  *tiAbuseIPDB,
+			VirusTotal: *tiVirusTotal,
+		},
+	}).Register(srv)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -208,24 +227,24 @@ func defaultAllowlist() string {
 
 func buildExecutor(enable bool, maxRisk string, allowContainer bool, execUser string, execTimeout time.Duration, allowTargets string, noAllowlist, dryRun bool, storeDir, msfrpcURL, msfrpcUser, msfrpcPass, nucleiBin, nucleiTpl, boofuzzPy string) (poc.ExecConfig, *poc.State) {
 	cfg := poc.ExecConfig{
-		Enabled:          enable,
-		MaxRisk:          poc.ParseRisk(maxRisk),
-		AllowContainer:   allowContainer,
-		ExecutorUser:     execUser,
-		ExecutionTimeout: execTimeout,
-		AllowlistPath:    allowTargets,
-		NoAllowlist:      noAllowlist,
-		DryRun:           dryRun,
-		AuditDir:         filepath.Join(storeDir, "executions"),
-		SecretKeyPath:    filepath.Join(storeDir, "exec-secret.key"),
-		WorkDir:          filepath.Join(os.TempDir(), "apophis-poc"),
-		MaxSandboxLevel:  poc.SandboxL1,
-		MSFRPCURL:        msfrpcURL,
-		MSFRPCUser:       msfrpcUser,
-		MSFRPCPass:       msfrpcPass,
-		NucleiBinary:     nucleiBin,
+		Enabled:            enable,
+		MaxRisk:            poc.ParseRisk(maxRisk),
+		AllowContainer:     allowContainer,
+		ExecutorUser:       execUser,
+		ExecutionTimeout:   execTimeout,
+		AllowlistPath:      allowTargets,
+		NoAllowlist:        noAllowlist,
+		DryRun:             dryRun,
+		AuditDir:           filepath.Join(storeDir, "executions"),
+		SecretKeyPath:      filepath.Join(storeDir, "exec-secret.key"),
+		WorkDir:            filepath.Join(os.TempDir(), "apophis-poc"),
+		MaxSandboxLevel:    poc.SandboxL1,
+		MSFRPCURL:          msfrpcURL,
+		MSFRPCUser:         msfrpcUser,
+		MSFRPCPass:         msfrpcPass,
+		NucleiBinary:       nucleiBin,
 		NucleiTemplatesDir: nucleiTpl,
-		BoofuzzPython:    boofuzzPy,
+		BoofuzzPython:      boofuzzPy,
 	}
 	if cfg.AllowContainer {
 		cfg.MaxSandboxLevel = poc.SandboxL2

@@ -443,10 +443,10 @@ func readMap(b []byte, off int, n int) (any, int, error) {
 // -- Nuclei dispatcher --------------------------------------------------------
 
 type NucleiDispatcher struct {
-	Binary  string
+	Binary       string
 	TemplatesDir string
-	ExtraArgs []string
-	Timeout time.Duration
+	ExtraArgs    []string
+	Timeout      time.Duration
 }
 
 func DefaultNucleiDispatcher() NucleiDispatcher {

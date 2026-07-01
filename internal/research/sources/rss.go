@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 	"time"
-
 )
 
 // RSSAdapter scrapes public security-blog RSS feeds. Each item in the feed

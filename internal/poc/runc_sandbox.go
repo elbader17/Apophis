@@ -27,7 +27,7 @@ type RuncOptions struct {
 	CPULimitSec  int64
 	PidsLimit    int64
 	NoNewPrivs   bool
-	UserNSMap   bool
+	UserNSMap    bool
 	ReadOnlyRoot bool
 	Timeout      time.Duration
 }
@@ -79,36 +79,36 @@ func NewRuncSandbox(opts RuncOptions) *RuncSandbox {
 }
 
 type runcSpec struct {
-	OCIVersion string         `json:"ociVersion"`
-	Process    *runcProcess   `json:"process,omitempty"`
-	Root       *runcRoot      `json:"root"`
-	Hostname   string         `json:"hostname,omitempty"`
-	Mounts     []runcMount    `json:"mounts,omitempty"`
-	Linux      *runcLinux     `json:"linux"`
+	OCIVersion string       `json:"ociVersion"`
+	Process    *runcProcess `json:"process,omitempty"`
+	Root       *runcRoot    `json:"root"`
+	Hostname   string       `json:"hostname,omitempty"`
+	Mounts     []runcMount  `json:"mounts,omitempty"`
+	Linux      *runcLinux   `json:"linux"`
 }
 
 type runcProcess struct {
-	User           runcUser     `json:"user"`
-	Args           []string     `json:"args"`
-	Env            []string     `json:"env"`
-	Cwd            string       `json:"cwd"`
-	NoNewPrivileges bool        `json:"noNewPrivileges"`
-	Capabilities    runcCaps    `json:"capabilities"`
+	User            runcUser `json:"user"`
+	Args            []string `json:"args"`
+	Env             []string `json:"env"`
+	Cwd             string   `json:"cwd"`
+	NoNewPrivileges bool     `json:"noNewPrivileges"`
+	Capabilities    runcCaps `json:"capabilities"`
 }
 
 type runcUser struct {
-	UID            uint32 `json:"uid"`
-	GID            uint32 `json:"gid"`
+	UID            uint32   `json:"uid"`
+	GID            uint32   `json:"gid"`
 	AdditionalGids []uint32 `json:"additionalGids,omitempty"`
-	Username       string  `json:"username,omitempty"`
+	Username       string   `json:"username,omitempty"`
 }
 
 type runcCaps struct {
-	Bounding     []string `json:"bounding"`
-	Effective    []string `json:"effective"`
-	Permitted    []string `json:"permitted"`
-	Inheritable  []string `json:"inheritable"`
-	Ambient      []string `json:"ambient"`
+	Bounding    []string `json:"bounding"`
+	Effective   []string `json:"effective"`
+	Permitted   []string `json:"permitted"`
+	Inheritable []string `json:"inheritable"`
+	Ambient     []string `json:"ambient"`
 }
 
 type runcRoot struct {
@@ -167,9 +167,9 @@ type runcRLim struct {
 }
 
 type runcIDMap struct {
-	ContainerID int    `json:"containerID"`
-	HostID      int    `json:"hostID"`
-	Size        int    `json:"size"`
+	ContainerID int `json:"containerID"`
+	HostID      int `json:"hostID"`
+	Size        int `json:"size"`
 }
 
 func defaultMaskedPaths() []string {

@@ -125,12 +125,12 @@ func grabBanner(ctx context.Context, conn net.Conn, port int) string {
 	defer conn.SetReadDeadline(time.Time{})
 
 	payloads := map[string][]byte{
-		"ssh":     []byte("SSH-2.0-OpenSSH_Probe\r\n"),
-		"http":    []byte("HEAD / HTTP/1.0\r\n\r\n"),
-		"smtp":    []byte("EHLO probe\r\n"),
-		"ftp":     []byte("USER anonymous\r\n"),
-		"pop3":    []byte("USER probe\r\n"),
-		"imap":    []byte(". CAPABILITY\r\n"),
+		"ssh":  []byte("SSH-2.0-OpenSSH_Probe\r\n"),
+		"http": []byte("HEAD / HTTP/1.0\r\n\r\n"),
+		"smtp": []byte("EHLO probe\r\n"),
+		"ftp":  []byte("USER anonymous\r\n"),
+		"pop3": []byte("USER probe\r\n"),
+		"imap": []byte(". CAPABILITY\r\n"),
 	}
 	if payload, ok := payloads[guessService(port)]; ok {
 		conn.Write(payload)

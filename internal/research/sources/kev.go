@@ -30,10 +30,10 @@ func (d *kevDate) UnmarshalJSON(b []byte) error {
 }
 
 type kevDoc struct {
-	Title           string    `json:"title"`
-	CatalogVersion  string    `json:"catalogVersion"`
-	DateReleased    kevDate   `json:"dateReleased"`
-	Count           int       `json:"count"`
+	Title           string  `json:"title"`
+	CatalogVersion  string  `json:"catalogVersion"`
+	DateReleased    kevDate `json:"dateReleased"`
+	Count           int     `json:"count"`
 	Vulnerabilities []struct {
 		CVEID             string  `json:"cveID"`
 		VendorProject     string  `json:"vendorProject"`

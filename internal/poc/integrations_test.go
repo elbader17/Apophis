@@ -72,15 +72,15 @@ func valueEqual(a, b any) bool {
 	if a == nil || b == nil {
 		return false
 	}
-		if reflect.TypeOf(a) != reflect.TypeOf(b) {
-			// Allow int to come back as int64
-			if ai, ok := a.(int); ok {
-				if bi, ok := b.(int64); ok {
-					return int64(ai) == bi
-				}
+	if reflect.TypeOf(a) != reflect.TypeOf(b) {
+		// Allow int to come back as int64
+		if ai, ok := a.(int); ok {
+			if bi, ok := b.(int64); ok {
+				return int64(ai) == bi
 			}
-			return false
 		}
+		return false
+	}
 	switch av := a.(type) {
 	case []any:
 		bv := b.([]any)
@@ -198,8 +198,8 @@ func TestBoofuzzDispatchNotInstalled(t *testing.T) {
 
 func TestResolveDispatcher(t *testing.T) {
 	cases := []struct {
-		src     string
-		want    string
+		src  string
+		want string
 	}{
 		{"metasploit", "msfrpc"},
 		{"Metasploit", "msfrpc"},
@@ -224,9 +224,9 @@ func TestResolveDispatcher(t *testing.T) {
 func TestParseModulePath(t *testing.T) {
 	cases := map[string]struct{ a, b string }{
 		"exploit/windows/smb/ms17_010_eternalblue": {"exploit", "windows/smb/ms17_010_eternalblue"},
-		"auxiliary/scanner/http/":                    {"auxiliary", "scanner/http/"},
-		"single":                                     {"", ""},
-		"":                                           {"", ""},
+		"auxiliary/scanner/http/":                  {"auxiliary", "scanner/http/"},
+		"single":                                   {"", ""},
+		"":                                         {"", ""},
 	}
 	for in, want := range cases {
 		a, b := parseModulePath(in)
